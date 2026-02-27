@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MMI Feedback Tool</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      justify-content: center;
+      padding: 40px;
+    }
+    .card {
+      background: #111827;
+      padding: 30px;
+      border-radius: 12px;
+      width: 500px;
+    }
+    input, textarea, button {
+      width: 100%;
+      margin-top: 12px;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      font-size: 14px;
+    }
+    textarea {
+      height: 120px;
+    }
+    button {
+      background: #6366f1;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #4f46e5;
+    }
+    .result {
+      margin-top: 20px;
+      background: #020617;
+      padding: 15px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>MMI Ethics Feedback</h2>
+
+    <input id="name" placeholder="Student name"/>
+    <textarea id="answer" placeholder="Paste your MMI answer"></textarea>
+
+    <button onclick="submitAnswer()">Generate Feedback</button>
+
+    <div id="output" class="result"></div>
+  </div>
+
+<script>
+async function submitAnswer() {
+  const name = document.getElementById("name").value;
+  const answer = document.getElementById("answer").value;
+
+  const res = await fetch("/.netlify/functions/mark", {
+    method: "POST",
+    body: JSON.stringify({ name, answer })
+  });
+
+  const data = await res.json();
+
+  document.getElementById("output").innerHTML = `
+    <h3>${name}</h3>
+    <b>Overall:</b> ${data.overall}/10<br><br>
+    <b>Empathy:</b> ${data.empathy}<br>
+    <b>Communication:</b> ${data.communication}<br>
+    <b>Ethics:</b> ${data.ethics}<br>
+    <b>Insight:</b> ${data.insight}<br><br>
+    <b>Feedback:</b><br>${data.comments}<br><br>
+    <b>Model answer:</b><br>${data.model_main}
+  `;
+}
+</script>
+</body>
+</html>
