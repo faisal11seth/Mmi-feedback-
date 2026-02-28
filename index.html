@@ -1,223 +1,145 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>MedVault MMI Interview Instant Feedback</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedVault MMI Interview Tool</title>
 
-  <style>
-    :root{
-      --bg:#0b1220;
-      --panel:#0f172a;
-      --panel2:#0b1328;
-      --border:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#6366f1;
-    }
-    *{ box-sizing:border-box; }
-    body{
-      margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
-      background:
-        radial-gradient(1200px 700px at 50% 0%, rgba(99,102,241,.22), transparent 60%),
-        radial-gradient(900px 600px at 0% 30%, rgba(56,189,248,.12), transparent 55%),
-        radial-gradient(900px 600px at 100% 35%, rgba(168,85,247,.10), transparent 55%),
-        var(--bg);
-      color:var(--text);
-    }
-    .container{
-      max-width:1120px;
-      margin:0 auto;
-      padding:38px 18px 56px;
-    }
-    .hero{
-      text-align:center;
-      margin-bottom:28px;
-    }
-    .logo{
-      width:180px;
-      max-width:55vw;
-      height:auto;
-      display:block;
-      margin:0 auto 12px;
-      filter: drop-shadow(0 10px 20px rgba(0,0,0,.35));
-      border-radius:14px;
-    }
-    h1{
-      margin:0;
-      font-size:30px;
-      letter-spacing:.2px;
-      line-height:1.15;
-    }
-    .sub{
-      margin:10px auto 0;
-      max-width:760px;
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.5;
-    }
+<style>
+  body{
+    margin:0;
+    font-family:Arial,Helvetica,sans-serif;
+    background:#0f172a;
+    color:#e5e7eb;
+  }
+  .container{ max-width:1100px; margin:auto; padding:40px 20px 60px; }
+  .header{ text-align:center; margin-bottom:30px; }
+  .logo{ width:200px; margin-bottom:12px; }
+  h1{ margin:0; font-size:30px; font-weight:800; }
+  .sub{ color:#94a3b8; margin-top:10px; font-size:14px; }
 
-    .section-title{
-      margin-top:22px;
-      font-size:18px;
-      font-weight:700;
-    }
-    .section-sub{
-      margin-top:6px;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.5;
-      margin-bottom:16px;
-    }
+  .section-title{ margin-top:30px; font-size:18px; font-weight:700; }
+  .section-sub{ color:#94a3b8; font-size:13px; margin-bottom:20px; }
 
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));
-      gap:14px;
-    }
-    .card{
-      background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
-      border:1px solid var(--border);
-      border-radius:14px;
-      padding:16px;
-      cursor:pointer;
-      transition: transform .14s ease, border-color .14s ease, background .14s ease;
-      position:relative;
-      overflow:hidden;
-    }
-    .card:hover{
-      transform:translateY(-2px);
-      border-color: rgba(99,102,241,.55);
-      background:linear-gradient(180deg, rgba(99,102,241,.06), rgba(255,255,255,.01));
-    }
-    .card-title{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:10px;
-      font-weight:700;
-      font-size:15px;
-      margin-bottom:8px;
-      line-height:1.3;
-    }
-    .tag{
-      flex:0 0 auto;
-      font-size:11px;
-      padding:2px 8px;
-      border-radius:999px;
-      border:1px solid rgba(99,102,241,.45);
-      background:rgba(99,102,241,.12);
-      color:#c7d2fe;
-      white-space:nowrap;
-      margin-top:1px;
-    }
-    .card-desc{
-      color:#cbd5e1;
-      font-size:13px;
-      line-height:1.45;
-      margin-bottom:12px;
-    }
-    .pills{
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-    }
-    .pill{
-      font-size:11px;
-      border:1px solid rgba(148,163,184,.22);
-      color:#cbd5e1;
-      padding:3px 8px;
-      border-radius:999px;
-      background:rgba(15,23,42,.35);
-    }
-    .footer-note{
-      margin-top:18px;
-      text-align:center;
-      color:rgba(148,163,184,.9);
-      font-size:12px;
-    }
-    .footer-note span{
-      color:#c7d2fe;
-    }
-  </style>
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+    gap:16px;
+  }
+  .card{
+    background:#111827;
+    border:1px solid rgba(148,163,184,.18);
+    border-radius:12px;
+    padding:16px;
+    cursor:pointer;
+    transition:.15s;
+  }
+  .card:hover{ border-color:#6366f1; transform:translateY(-2px); }
+  .card-title{ font-weight:700; font-size:15px; margin-bottom:6px; }
+  .tag{
+    font-size:11px;
+    background:rgba(99,102,241,.12);
+    border:1px solid rgba(99,102,241,.4);
+    padding:2px 6px;
+    border-radius:999px;
+    margin-left:6px;
+  }
+  .card-desc{ font-size:13px; color:#cbd5f5; margin-bottom:10px; }
+  .pills{ display:flex; gap:6px; flex-wrap:wrap; }
+  .pill{
+    font-size:11px;
+    border:1px solid rgba(148,163,184,.25);
+    padding:3px 8px;
+    border-radius:999px;
+    color:#cbd5e1;
+  }
+</style>
 </head>
 
 <body>
-  <div class="container">
-    <div class="hero">
-      <img src="logo.png" class="logo" alt="MedVaultUK logo"/>
-      <h1>MedVault MMI Interview Instant Feedback</h1>
-      <div class="sub">
-        Practise realistic UK medical school MMI stations with structured prompts, AI scoring, and high-yield model answers (bullets + full).
-      </div>
-    </div>
+<div class="container">
 
-    <div class="section-title">Choose a station</div>
-    <div class="section-sub">
-      Pick a scenario, answer each prompt, then generate feedback + model answers. <span>No placeholder questions.</span>
-    </div>
-
-    <div class="grid" id="stationsGrid"></div>
-
-    <div class="footer-note">
-      Tip: write your answers like you’d <span>speak them in a timed MMI</span> (clear + structured).
+  <div class="header">
+    <img src="logo.png" class="logo" alt="MedVault logo">
+    <h1>MedVault MMI Interview Instant Feedback</h1>
+    <div class="sub">
+      Practise realistic UK medical school MMI stations with structured prompts, AI scoring, and high-yield model answers.
     </div>
   </div>
 
-  <script>
-    // ✅ SINGLE SOURCE OF TRUTH FOR STATIONS (index + station.html must match)
-    const STATIONS = [
-      { id:"blood_transfusion_refusal", title:"Refusal of life-saving blood transfusion", tag:"Ethics",
-        desc:"Autonomy vs beneficence, capacity (MCA), informed refusal, escalation and documentation." },
+  <div class="section-title">Choose a station</div>
+  <div class="section-sub">
+    Pick a station to open the full scenario, answer each prompt, then generate feedback + model answers.
+  </div>
 
-      { id:"confidentiality_breach", title:"Confidentiality breach in a public area", tag:"Professionalism",
-        desc:"Challenging a colleague, confidentiality, escalation pathways, reflection/learning." },
+  <div class="grid">
+    <div class="card" onclick="openStation('blood_transfusion_refusal')">
+      <div class="card-title">Refusal of life-saving blood transfusion <span class="tag">Ethics</span></div>
+      <div class="card-desc">Autonomy vs beneficence, Mental Capacity Act, informed refusal, escalation, documentation.</div>
+      <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
+    </div>
 
-      { id:"colleague_error", title:"Medication prescribing error noticed", tag:"Patient safety",
-        desc:"Speaking up, hierarchy, preventing harm, duty of candour, team communication." },
+    <div class="card" onclick="openStation('confidentiality_breach')">
+      <div class="card-title">Confidentiality breach in a public area <span class="tag">Professionalism</span></div>
+      <div class="card-desc">Challenging a colleague, confidentiality, escalation pathways, reflection/learning.</div>
+      <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
+    </div>
 
-      { id:"dnar_conflict", title:"DNACPR disagreement with family", tag:"Ethics",
-        desc:"End-of-life communication, DNACPR scope, best-interests reasoning, compassion." },
+    <div class="card" onclick="openStation('colleague_error')">
+      <div class="card-title">Medication prescribing error noticed <span class="tag">Patient safety</span></div>
+      <div class="card-desc">Speaking up, hierarchy, preventing harm, duty of candour, team communication.</div>
+      <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
+    </div>
 
-      { id:"capacity_refusal", title:"Refusal of recommended treatment", tag:"Capacity",
-        desc:"Capacity assessment, shared decision-making, respecting refusal, safety-netting." },
+    <div class="card" onclick="openStation('dnar_conflict')">
+      <div class="card-title">DNACPR disagreement with family <span class="tag">Ethics</span></div>
+      <div class="card-desc">End-of-life communication, DNACPR scope, best-interests reasoning, compassion.</div>
+      <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
+    </div>
 
-      { id:"breaking_bad_news", title:"Breaking bad news: new cancer diagnosis", tag:"Communication",
-        desc:"SPIKES structure, empathy, checking understanding, responding to emotion, next steps." },
+    <div class="card" onclick="openStation('capacity_refusal')">
+      <div class="card-title">Refusal of recommended treatment <span class="tag">Capacity</span></div>
+      <div class="card-desc">Capacity assessment, shared decision-making, respecting refusal, safety-netting.</div>
+      <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
+    </div>
 
-      { id:"team_conflict", title:"Team conflict affecting patient care", tag:"Teamwork",
-        desc:"Managing disagreement, professionalism, escalation, protecting patient safety." },
+    <div class="card" onclick="openStation('breaking_bad_news')">
+      <div class="card-title">Breaking bad news: new cancer diagnosis <span class="tag">Communication</span></div>
+      <div class="card-desc">SPIKES structure, empathy, checking understanding, responding to emotion, next steps.</div>
+      <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
+    </div>
 
-      { id:"cultural_refusal", title:"Treatment refusal due to cultural/religious beliefs", tag:"Ethics",
-        desc:"Cultural sensitivity, exploring beliefs, shared decisions, interpreter/chaplaincy, avoiding bias." },
+    <div class="card" onclick="openStation('team_conflict')">
+      <div class="card-title">Team conflict affecting patient care <span class="tag">Teamwork</span></div>
+      <div class="card-desc">Managing disagreement, professionalism, escalation, protecting patient safety.</div>
+      <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
+    </div>
 
-      { id:"consent_understanding", title:"Patient lacks understanding during consent", tag:"Ethics",
-        desc:"Assessing understanding, explaining risks/benefits, ensuring informed consent and capacity." },
+    <div class="card" onclick="openStation('cultural_refusal')">
+      <div class="card-title">Treatment refusal due to cultural/religious beliefs <span class="tag">Ethics</span></div>
+      <div class="card-desc">Cultural sensitivity, exploring beliefs, shared decisions, interpreter/chaplaincy support.</div>
+      <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
+    </div>
 
-      { id:"relative_requests_information", title:"Relative requests patient information", tag:"Confidentiality",
-        desc:"Consent to share information, capacity issues, managing relatives, when to breach confidentiality." },
-    ];
+    <div class="card" onclick="openStation('consent_understanding')">
+      <div class="card-title">Patient lacks understanding during consent <span class="tag">Ethics</span></div>
+      <div class="card-desc">Assessing understanding, explaining risks/benefits, ensuring informed consent.</div>
+      <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
+    </div>
 
-    function openStation(id){
-      window.location.href = "station.html?station=" + encodeURIComponent(id);
-    }
+    <div class="card" onclick="openStation('relative_requests_information')">
+      <div class="card-title">Relative requests patient information <span class="tag">Confidentiality</span></div>
+      <div class="card-desc">Confidentiality, consent to share information, capacity issues, managing relatives.</div>
+      <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
+    </div>
+  </div>
+</div>
 
-    const grid = document.getElementById("stationsGrid");
-    grid.innerHTML = STATIONS.map(s => `
-      <div class="card" onclick="openStation('${s.id}')">
-        <div class="card-title">
-          <div>${s.title}</div>
-          <span class="tag">${s.tag}</span>
-        </div>
-        <div class="card-desc">${s.desc}</div>
-        <div class="pills">
-          <div class="pill">Reading: 2m</div>
-          <div class="pill">Response: 6m</div>
-          <div class="pill">Follow-ups: 2m</div>
-        </div>
-      </div>
-    `).join("");
-  </script>
+<script>
+function openStation(id){
+  window.location.href = "station.html?station=" + encodeURIComponent(id);
+}
+</script>
+
 </body>
 </html>
