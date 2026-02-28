@@ -58,7 +58,7 @@ exports.handler = async (event) => {
     const input = `
 You are a strict UK medical school MMI examiner.
 
-Return ONLY valid JSON (no markdown, no commentary).
+Return ONLY valid JSON (no markdown, no extra commentary).
 
 Station ID: ${stationId}
 Station Title: ${stationTitle || ""}
@@ -77,37 +77,34 @@ F1: ${answers.f1 || ""}
 F2: ${answers.f2 || ""}
 F3: ${answers.f3 || ""}
 
-Rules:
-- If any answer is nonsense/too short (e.g., random letters), score low (0–2/10) and explain why.
+Scoring rules:
+- If any answer is nonsense / too short (e.g., random letters), score low (0–2/10) and explain why.
+- Use realistic UK MMI scoring, not generous.
+- Scores are out of 10 for: overall, communication, empathy, ethics, insight.
+
+Feedback rules:
 - Give feedback separately for MAIN and each FOLLOW-UP (f1, f2, f3).
-- Generate model answers separately for MAIN and each FOLLOW-UP.
+- Feedback should be specific: what was good, what was missing, and how to improve.
 
-MODEL ANSWERS MUST BE RIGID + CONSISTENT FOR EVERY STATION.
-
-For MAIN and for each FOLLOW-UP:
-A) BULLETS (use exactly these headings):
+Model answer rules (IMPORTANT):
+- Provide model answers separately for MAIN and each FOLLOW-UP.
+- BULLETS must be structured and scannable using exactly these headings (each on its own line):
 Opening line:
 Key steps:
 Safety / escalation:
 Legal / ethical / GMC:
 Close / safety-net:
 
-B) FULL (use exactly these headings):
-Opening (1–2 sentences):
-Approach (2–4 sentences):
-Explain / Justify (2–4 sentences):
-Escalation + Safety-net (1–3 sentences):
-Close (1 sentence):
+- FULL answers must be USER-FRIENDLY:
+  - DO NOT include headings like “Opening / Approach / Explain / Safety-net” inside the text.
+  - Write as a single clean exam-ready response (max 2 short paragraphs).
+  - Use natural signposting (First… Then… Finally…) but keep it flowing.
+  - No label breaks every few sentences.
 
-Word targets (KEEP WITHIN):
-- MAIN full: 140–200 words.
-- Each FOLLOW-UP full: 90–140 words.
-- Bullets should be compact (no essays).
-
-Style:
-- UK MMI tone, signposting (“First… Next… Finally…”).
-- Directly answer each prompt.
-- Do NOT add extra sections.
+Length targets (keep within to avoid timeouts):
+- MAIN full: 160–240 words.
+- Each FOLLOW-UP full: 110–170 words.
+- Bullets: concise, not essays.
 
 Return JSON in this exact shape:
 
@@ -137,7 +134,7 @@ Return JSON in this exact shape:
         model: "gpt-4.1-mini",
         input,
         text: { format: { type: "json_object" } },
-        max_output_tokens: 1600, // key: prevents huge outputs = fewer timeouts
+        max_output_tokens: 1700,
       }),
       signal: controller.signal,
     });
@@ -159,7 +156,6 @@ Return JSON in this exact shape:
 
     const data = JSON.parse(raw);
 
-    // Extract text output (Responses API)
     const outText =
       data?.output?.[0]?.content?.find((c) => c.type === "output_text")?.text || "";
 
