@@ -340,7 +340,27 @@
       }
     }
   };
+consent_understanding: {
+  title: "Patient lacks understanding during consent",
+  desc: "Assessing understanding, explaining risks/benefits, ensuring informed consent and capacity.",
+  prompts: {
+    main: "A patient agrees to a procedure but seems not to understand what it involves. How would you approach this?",
+    f1: "How do you assess whether consent is valid?",
+    f2: "What would you do if they still do not understand after explanation?",
+    f3: "Why is informed consent ethically important?"
+  }
+},
 
+relative_requests_information: {
+  title: "Relative requests patient information",
+  desc: "Confidentiality, consent to share information, capacity and managing relatives.",
+  prompts: {
+    main: "A patient's relative asks you for details about their condition, but the patient has not given permission. How would you respond?",
+    f1: "What if the relative insists they have a right to know?",
+    f2: "When can confidentiality be breached?",
+    f3: "How would you handle this sensitively?"
+  }
+},
   function getStationId(){
     const params = new URLSearchParams(window.location.search);
     return params.get("station");
