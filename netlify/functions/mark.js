@@ -11,69 +11,114 @@ export async function handler(event) {
   }
 
   if (!process.env.OPENAI_API_KEY) {
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: "Missing OPENAI_API_KEY" })
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: "Missing OPENAI_API_KEY" }) };
   }
 
-  let body = {};
+  let body;
   try {
     body = JSON.parse(event.body || "{}");
   } catch {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: "Invalid JSON" }) };
+    return { statusCode: 400, headers, body: JSON.stringify({ error: "Invalid JSON body" }) };
   }
 
-  const {
-    name = "",
-    station_description = "",
-    main_question = "",
-    followup2 = "",
-    followup3 = "",
-    candidate_answer = ""
-  } = body;
+  const student_name = body.student_name || "";
+  const station_description = body.station_description || "";
+  const timings = body.timings || { reading_minutes: 2, response_minutes: 6, followups_minutes: 2 };
 
-  if (!candidate_answer) {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: "Missing candidate_answer" }) };
-  }
+  const main = body.main || { prompt: "", answer: "" };
+  const followup2 = body.followup2 || { prompt: "", answer: "" };
+  const followup3 = body.followup3 || { prompt: "", answer: "" };
+
+  const schema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      student_name: { type: "string" },
+      main: { $ref: "#/$defs/qblock" },
+      followup2: { anyOf: [{ $ref: "#/$defs/qblock" }, { type: "null" }] },
+      followup3: { anyOf: [{ $ref: "#/$defs/qblock" }, { type: "null" }] }
+    },
+    required: ["student_name", "main", "followup2", "followup3"],
+    $defs: {
+      qblock: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          scores: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              empathy: { type: "number" },
+              communication: { type: "number" },
+              ethics: { type: "number" },
+              insight: { type: "number" },
+              overall: { type: "number" }
+            },
+            required: ["empathy", "communication", "ethics", "insight", "overall"]
+          },
+          feedback: { type: "string" },
+          model_answer: { type: "string" }
+        },
+        required: ["scores", "feedback", "model_answer"]
+      }
+    }
+  };
 
   const prompt = `
-You are a UK medical school MMI examiner marking an ethics station.
+You are a UK medical school MMI examiner.
+
+You must mark THREE separate answers:
+1) Main ethics question
+2) Follow-up question 2
+3) Follow-up question 3
 
 Station description:
 ${station_description}
 
-Main question:
-${main_question}
+Timing:
+- Reading: ${timings.reading_minutes} minutes
+- Main response: ${timings.response_minutes} minutes
+- Follow-ups: ${timings.followups_minutes} minutes
 
-Follow-up 2:
-${followup2}
+Marking rubric (0–10 in each domain):
+- empathy: warmth, patient-centred tone, acknowledges feelings/concerns, avoids judgement
+- communication: structure, clarity, signposting, professional language, checks understanding, summarises
+- ethics: correct principles, balances autonomy/beneficence/non-maleficence/justice, capacity/consent, confidentiality/safeguarding/escalation where relevant
+- insight: reflective thinking, uncertainty management, practical next steps, documentation and senior support
+Overall is a holistic /10.
 
-Follow-up 3:
-${followup3}
+Important rules:
+- Provide feedback SEPARATELY for each question (main, followup2, followup3).
+- Provide a model answer SEPARATELY for each question.
+- Model answers should be consistent and structured (intro → key principles → actions/plan → escalation/safety-net/documentation).
+- If follow-up 2 prompt OR answer is blank, set followup2 to null.
+- If follow-up 3 prompt OR answer is blank, set followup3 to null.
+- Return ONLY JSON that matches the schema.
 
-Candidate name: ${name}
+Candidate:
+Name: ${student_name}
 
-Candidate answer:
-${candidate_answer}
+MAIN QUESTION PROMPT:
+${main.prompt}
 
-Return ONLY JSON:
-{
-  "empathy": number,
-  "communication": number,
-  "ethics": number,
-  "insight": number,
-  "overall": number,
-  "strengths": ["string"],
-  "improvements": ["string"],
-  "comments": "string",
-  "model_main": "string"
-}
+MAIN ANSWER:
+${main.answer}
+
+FOLLOW-UP 2 PROMPT:
+${followup2.prompt}
+
+FOLLOW-UP 2 ANSWER:
+${followup2.answer}
+
+FOLLOW-UP 3 PROMPT:
+${followup3.prompt}
+
+FOLLOW-UP 3 ANSWER:
+${followup3.answer}
 `;
 
   try {
-    const res = await fetch("https://api.openai.com/v1/responses", {
+    const aiRes = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -82,16 +127,29 @@ Return ONLY JSON:
       body: JSON.stringify({
         model: "gpt-5-mini",
         input: prompt,
-        response_format: { type: "json_object" }
+        temperature: 0,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "mmi_ethics_marking",
+            strict: true,
+            schema
+          }
+        }
       })
     });
 
-    const data = await res.json();
+    const aiData = await aiRes.json();
 
     const text =
-      data?.output_text ||
-      data?.output?.[0]?.content?.[0]?.text ||
+      aiData?.output_text ||
+      aiData?.output?.[0]?.content?.[0]?.text ||
+      aiData?.choices?.[0]?.message?.content ||
       "";
+
+    if (!text) {
+      return { statusCode: 500, headers, body: JSON.stringify({ error: "No text returned from model", raw: aiData }) };
+    }
 
     let parsed;
     try {
@@ -100,17 +158,9 @@ Return ONLY JSON:
       return { statusCode: 500, headers, body: JSON.stringify({ error: "Invalid model JSON", raw: text }) };
     }
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify(parsed)
-    };
+    return { statusCode: 200, headers, body: JSON.stringify(parsed) };
 
   } catch (err) {
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: "Server error", details: String(err) })
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: "Server error", details: String(err) }) };
   }
 }
