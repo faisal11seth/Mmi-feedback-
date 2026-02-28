@@ -44,8 +44,24 @@ ${answer}
   const data = await res.json();
   const text = data.output[0].content[0].text;
 
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (e) {
+    parsed = {
+      overall: 0,
+      empathy: 0,
+      communication: 0,
+      ethics: 0,
+      insight: 0,
+      comments: "Model output parsing failed",
+      model_main: text
+    };
+  }
+
   return {
     statusCode: 200,
-    body: text
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(parsed)
   };
 }
