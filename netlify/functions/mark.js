@@ -1,166 +1,228 @@
 export async function handler(event) {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Content-Type": "application/json"
-  };
-
+  // Basic CORS (helps if you ever call from elsewhere)
   if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+    return {
+      statusCode: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+      },
+      body: "",
+    };
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: "Missing OPENAI_API_KEY" }) };
+  if (event.httpMethod !== "POST") {
+    return json(405, { error: "Method not allowed. Use POST." });
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return json(500, { error: "Missing OPENAI_API_KEY in Netlify environment variables." });
   }
 
   let body;
   try {
     body = JSON.parse(event.body || "{}");
   } catch {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: "Invalid JSON body" }) };
+    return json(400, { error: "Invalid JSON body." });
   }
 
-  const student_name = body.student_name || "";
-  const station_description = body.station_description || "";
-  const timings = body.timings || { reading_minutes: 2, response_minutes: 6, followups_minutes: 2 };
+  const name = (body.name || "").trim();
+  const prompts = body.prompts || {};
+  const answers = body.answers || {};
 
-  const main = body.main || { prompt: "", answer: "" };
-  const followup2 = body.followup2 || { prompt: "", answer: "" };
-  const followup3 = body.followup3 || { prompt: "", answer: "" };
+  const promptMain = (prompts.main || "").trim();
+  const promptFU1  = (prompts.fu1 || "").trim();
+  const promptFU2  = (prompts.fu2 || "").trim();
+  const promptFU3  = (prompts.fu3 || "").trim();
 
+  const ansMain = (answers.main || "").trim();
+  const ansFU1  = (answers.fu1 || "").trim();
+  const ansFU2  = (answers.fu2 || "").trim();
+  const ansFU3  = (answers.fu3 || "").trim();
+
+  if (!promptMain || !promptFU1 || !promptFU2 || !promptFU3) {
+    return json(400, { error: "Missing one or more station prompts." });
+  }
+  if (!ansMain) {
+    return json(400, { error: "Main answer is empty. Please answer the main question." });
+  }
+
+  // Rigid word counts (so model answers are consistent)
+  // Main: ~180–220 words, each follow-up: ~60–90 words.
+  const system = `
+You are a UK medical school MMI examiner marking an ethics station.
+You MUST return ONLY valid JSON that matches the provided schema.
+Do not include any extra keys.
+Be consistent and structured.
+  `.trim();
+
+  const user = `
+Station timings: Reading 2 minutes, Response 6 minutes, Follow-ups 2 minutes.
+
+Candidate name: ${name || "Candidate"}
+
+Station questions:
+MAIN: ${promptMain}
+FU1: ${promptFU1}
+FU2: ${promptFU2}
+FU3: ${promptFU3}
+
+Candidate answers (mark each separately):
+MAIN ANSWER:
+${ansMain}
+
+FU1 ANSWER:
+${ansFU1 || "(no answer provided)"}
+
+FU2 ANSWER:
+${ansFU2 || "(no answer provided)"}
+
+FU3 ANSWER:
+${ansFU3 || "(no answer provided)"}
+
+Marking requirements:
+1) Give domain scores out of 10: empathy, communication, ethics, insight (integers 0–10).
+2) Give an overall score out of 10 (integer 0–10).
+3) Provide feedback separately for each question (main, fu1, fu2, fu3). Each feedback section should be:
+   - 2–4 bullet points: what was done well
+   - 2–4 bullet points: improvements (very practical)
+   If a follow-up answer is missing, say so and give what they should have covered.
+4) Provide rigid model answers (consistent style) for each question:
+   - MAIN model answer: 180–220 words
+   - Each follow-up model answer: 60–90 words
+   Use UK framing: capacity assessment, autonomy, best interests, escalation, documentation, MDT, and alternatives.
+   Avoid quoting laws verbatim; keep it MMI-suitable and safe.
+
+Return only JSON, nothing else.
+  `.trim();
+
+  // JSON schema enforced output (stops “invalid model JSON”)
   const schema = {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      student_name: { type: "string" },
-      main: { $ref: "#/$defs/qblock" },
-      followup2: { anyOf: [{ $ref: "#/$defs/qblock" }, { type: "null" }] },
-      followup3: { anyOf: [{ $ref: "#/$defs/qblock" }, { type: "null" }] }
-    },
-    required: ["student_name", "main", "followup2", "followup3"],
-    $defs: {
-      qblock: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          scores: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              empathy: { type: "number" },
-              communication: { type: "number" },
-              ethics: { type: "number" },
-              insight: { type: "number" },
-              overall: { type: "number" }
-            },
-            required: ["empathy", "communication", "ethics", "insight", "overall"]
+    name: "mmi_ethics_feedback",
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["domain_scores", "overall", "feedback", "model_answers"],
+      properties: {
+        domain_scores: {
+          type: "object",
+          additionalProperties: false,
+          required: ["empathy", "communication", "ethics", "insight"],
+          properties: {
+            empathy: { type: "integer", minimum: 0, maximum: 10 },
+            communication: { type: "integer", minimum: 0, maximum: 10 },
+            ethics: { type: "integer", minimum: 0, maximum: 10 },
+            insight: { type: "integer", minimum: 0, maximum: 10 },
           },
-          feedback: { type: "string" },
-          model_answer: { type: "string" }
         },
-        required: ["scores", "feedback", "model_answer"]
-      }
-    }
+        overall: { type: "integer", minimum: 0, maximum: 10 },
+        feedback: {
+          type: "object",
+          additionalProperties: false,
+          required: ["main", "fu1", "fu2", "fu3"],
+          properties: {
+            main: { type: "string" },
+            fu1: { type: "string" },
+            fu2: { type: "string" },
+            fu3: { type: "string" },
+          },
+        },
+        model_answers: {
+          type: "object",
+          additionalProperties: false,
+          required: ["main", "fu1", "fu2", "fu3"],
+          properties: {
+            main: { type: "string" },
+            fu1: { type: "string" },
+            fu2: { type: "string" },
+            fu3: { type: "string" },
+          },
+        },
+      },
+    },
   };
 
-  const prompt = `
-You are a UK medical school MMI examiner.
-
-You must mark THREE separate answers:
-1) Main ethics question
-2) Follow-up question 2
-3) Follow-up question 3
-
-Station description:
-${station_description}
-
-Timing:
-- Reading: ${timings.reading_minutes} minutes
-- Main response: ${timings.response_minutes} minutes
-- Follow-ups: ${timings.followups_minutes} minutes
-
-Marking rubric (0–10 in each domain):
-- empathy: warmth, patient-centred tone, acknowledges feelings/concerns, avoids judgement
-- communication: structure, clarity, signposting, professional language, checks understanding, summarises
-- ethics: correct principles, balances autonomy/beneficence/non-maleficence/justice, capacity/consent, confidentiality/safeguarding/escalation where relevant
-- insight: reflective thinking, uncertainty management, practical next steps, documentation and senior support
-Overall is a holistic /10.
-
-Important rules:
-- Provide feedback SEPARATELY for each question (main, followup2, followup3).
-- Provide a model answer SEPARATELY for each question.
-- Model answers should be consistent and structured (intro → key principles → actions/plan → escalation/safety-net/documentation).
-- If follow-up 2 prompt OR answer is blank, set followup2 to null.
-- If follow-up 3 prompt OR answer is blank, set followup3 to null.
-- Return ONLY JSON that matches the schema.
-
-Candidate:
-Name: ${student_name}
-
-MAIN QUESTION PROMPT:
-${main.prompt}
-
-MAIN ANSWER:
-${main.answer}
-
-FOLLOW-UP 2 PROMPT:
-${followup2.prompt}
-
-FOLLOW-UP 2 ANSWER:
-${followup2.answer}
-
-FOLLOW-UP 3 PROMPT:
-${followup3.prompt}
-
-FOLLOW-UP 3 ANSWER:
-${followup3.answer}
-`;
-
   try {
-    const aiRes = await fetch("https://api.openai.com/v1/responses", {
+    const res = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-5-mini",
-        input: prompt,
         temperature: 0,
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "mmi_ethics_marking",
-            strict: true,
-            schema
-          }
-        }
-      })
+        input: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        response_format: { type: "json_schema", json_schema: schema },
+        max_output_tokens: 1200,
+      }),
     });
 
-    const aiData = await aiRes.json();
+    const raw = await res.json();
 
-    const text =
-      aiData?.output_text ||
-      aiData?.output?.[0]?.content?.[0]?.text ||
-      aiData?.choices?.[0]?.message?.content ||
-      "";
+    if (!res.ok) {
+      return json(res.status, {
+        error: "OpenAI API request failed.",
+        details: raw,
+      });
+    }
 
-    if (!text) {
-      return { statusCode: 500, headers, body: JSON.stringify({ error: "No text returned from model", raw: aiData }) };
+    // The Responses API returns a structured output array.
+    // With json_schema, the message content is guaranteed JSON.
+    const outText = extractOutputText(raw);
+    if (!outText) {
+      return json(500, { error: "No text returned from model.", details: raw });
     }
 
     let parsed;
     try {
-      parsed = JSON.parse(text);
+      parsed = JSON.parse(outText);
     } catch {
-      return { statusCode: 500, headers, body: JSON.stringify({ error: "Invalid model JSON", raw: text }) };
+      return json(500, { error: "Model returned non-JSON.", details: raw, raw_text: outText });
     }
 
-    return { statusCode: 200, headers, body: JSON.stringify(parsed) };
-
+    return json(200, parsed);
   } catch (err) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: "Server error", details: String(err) }) };
+    return json(500, { error: "Server error in function.", details: String(err) });
+  }
+}
+
+function json(statusCode, obj) {
+  return {
+    statusCode,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+    },
+    body: JSON.stringify(obj),
+  };
+}
+
+// Try to robustly extract the assistant text from Responses API output
+function extractOutputText(data) {
+  try {
+    // Common shape:
+    // data.output = [{ type:"message", content:[{ type:"output_text", text:"{...json...}" }]}]
+    const output = data?.output || [];
+    for (const item of output) {
+      if (item?.type === "message") {
+        const content = item?.content || [];
+        for (const c of content) {
+          if (c?.type === "output_text" && typeof c?.text === "string") return c.text;
+          if (typeof c?.text === "string") return c.text;
+        }
+      }
+    }
+    // Fallbacks
+    if (typeof data?.output_text === "string") return data.output_text;
+    if (typeof data?.text === "string") return data.text;
+    return null;
+  } catch {
+    return null;
   }
 }
