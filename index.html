@@ -3,20 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>MMI Ethics Feedback Tool</title>
+  <title>MedVault MMI Interview Tool</title>
 
   <style>
     :root{
       --bg:#0f172a;
-      --card:#111827;
-      --panel:#0b1220;
-      --border:rgba(148,163,184,.22);
-      --muted:#a3a3a3;
+      --panel:#111827;
+      --panel2:#0b1220;
+      --panel3:#020617;
       --text:#ffffff;
+      --muted:#a3a3a3;
+      --line:rgba(148,163,184,.22);
       --accent:#6366f1;
       --accent2:#4f46e5;
-      --danger:#fecaca;
-      --success:#a7f3d0;
     }
 
     body {
@@ -26,53 +25,70 @@
       display: flex;
       justify-content: center;
       padding: 40px 16px;
-    }
-
-    .wrap{
-      width: min(980px, 96vw);
+      margin:0;
     }
 
     .card {
-      background: var(--card);
+      background: var(--panel);
       padding: 28px;
       border-radius: 12px;
+      width: min(860px, 96vw);
       box-shadow: 0 10px 30px rgba(0,0,0,.25);
-      border: 1px solid rgba(255,255,255,.04);
+      border: 1px solid rgba(148,163,184,.12);
     }
 
-    h1 { margin: 0 0 10px 0; font-size: 26px; }
-    h2 { margin: 0 0 10px 0; font-size: 18px; }
-    h3 { margin: 18px 0 10px 0; font-size: 16px; }
-    .muted { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+    .header{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      margin-bottom:18px;
+    }
+
+    .logo{
+      height:44px;
+      width:auto;
+    }
+
+    @media (max-width:600px){
+      .logo{height:34px;}
+    }
+
+    h1 { margin: 0; font-weight: 700; letter-spacing: -0.3px; }
+    h2 { margin: 0 0 12px 0; }
+    .muted { color: var(--muted); font-size: 13px; margin-top: 6px; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
+    .spacer { height: 10px; }
 
     label { display:block; margin-top: 14px; font-size: 13px; color:#cbd5e1; }
-
-    input, textarea, button {
+    input, textarea, select, button {
       width: 100%;
       margin-top: 8px;
       padding: 10px 12px;
       border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--panel);
+      border: 1px solid var(--line);
+      background: var(--panel2);
       color: white;
       font-size: 14px;
       box-sizing: border-box;
+      outline:none;
     }
     textarea { min-height: 110px; resize: vertical; }
+    select { cursor:pointer; }
 
     .station {
       margin-top: 16px;
-      background: var(--panel);
-      border: 1px solid var(--border);
+      background: var(--panel2);
+      border: 1px solid var(--line);
       padding: 14px;
       border-radius: 12px;
     }
 
+    .station h3 { margin: 0 0 10px 0; font-size: 15px; }
     .timings {
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      margin: 10px 0 12px 0;
+      margin-bottom: 10px;
       color:#cbd5e1;
       font-size: 13px;
     }
@@ -83,18 +99,7 @@
       border-radius: 999px;
     }
 
-    .qbox{
-      background: rgba(255,255,255,.03);
-      border: 1px solid rgba(255,255,255,.08);
-      padding: 10px 12px;
-      border-radius: 10px;
-      margin-top: 8px;
-      color:#e5e7eb;
-      font-size: 14px;
-      line-height: 1.35;
-    }
-
-    button {
+    button.primary {
       background: var(--accent);
       color: white;
       font-weight: bold;
@@ -103,448 +108,585 @@
       margin-top: 16px;
       padding: 12px 14px;
     }
-    button:hover { background: var(--accent2); }
-    button:disabled { opacity: .55; cursor: not-allowed; }
+    button.primary:hover { background: var(--accent2); }
+    button.ghost{
+      width:auto;
+      padding:10px 12px;
+      background: transparent;
+      border:1px solid var(--line);
+      color:#e5e7eb;
+      cursor:pointer;
+      margin-top:0;
+    }
+    button.ghost:hover{
+      border-color: rgba(99,102,241,.55);
+      background: rgba(99,102,241,.08);
+    }
 
     .result {
       margin-top: 18px;
-      background: #020617;
-      padding: 16px;
+      background: var(--panel3);
+      padding: 14px;
       border-radius: 12px;
       border: 1px solid rgba(148,163,184,.15);
     }
 
-    .err { color: var(--danger); }
-    .ok { color: var(--success); }
-
     .scores{
       display:grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap:10px;
-      margin-top: 8px;
-      margin-bottom: 8px;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:12px;
+      margin-bottom: 14px;
     }
-    .scoreCard{
-      background: rgba(255,255,255,.03);
-      border: 1px solid rgba(255,255,255,.08);
+    @media (max-width:680px){
+      .scores{ grid-template-columns: 1fr; }
+    }
+    .scoreBox{
+      border:1px solid var(--line);
+      background: rgba(2,6,23,.35);
       border-radius: 12px;
       padding: 12px;
       font-weight: 700;
-      display:flex;
-      justify-content: space-between;
-      align-items: center;
     }
-    .scoreCard span{
+    .scoreBox span{
       font-weight: 400;
-      opacity: .95;
+      color:#e5e7eb;
     }
 
-    .divider{
-      height:1px;
-      background: rgba(255,255,255,.08);
-      margin: 16px 0;
+    .sectionTitle{
+      margin: 16px 0 8px 0;
+      font-size: 18px;
+      font-weight: 800;
     }
 
-    .mono{
+    pre {
       white-space: pre-wrap;
       word-wrap: break-word;
       margin: 0;
       color: #e5e7eb;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size: 12.8px;
+      font-size: 12.5px;
       line-height: 1.45;
-      background: rgba(255,255,255,.03);
-      border: 1px solid rgba(255,255,255,.08);
-      padding: 12px;
-      border-radius: 12px;
     }
+    .err { color:#fecaca; }
 
     /* Station cards */
-    .stationPicker{
-      margin-top: 14px;
+    .grid{
       display:grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:14px;
+      margin-top: 14px;
+    }
+    @media (max-width:800px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .stationCard{
+      border: 1px solid var(--line);
+      background: var(--panel2);
+      border-radius: 14px;
+      padding: 14px;
+      cursor:pointer;
+      transition: transform .08s ease, border-color .08s ease, background .08s ease;
+    }
+    .stationCard:hover{
+      transform: translateY(-1px);
+      border-color: rgba(99,102,241,.55);
+      background: rgba(11,18,32,.85);
+    }
+    .stationCard .top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
       gap:10px;
     }
-    @media (max-width: 860px){
-      .stationPicker{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stationCard .name{
+      font-weight: 900;
+      font-size: 15px;
+      margin:0;
     }
-    @media (max-width: 540px){
-      .stationPicker{ grid-template-columns: 1fr; }
+    .stationCard .tag{
+      font-size: 12px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(99,102,241,.35);
+      background: rgba(99,102,241,.10);
+      color:#c7d2fe;
+      white-space:nowrap;
+      margin-top:1px;
     }
-    .sCard{
-      text-align:left;
-      background: rgba(255,255,255,.03);
-      border: 1px solid rgba(255,255,255,.10);
-      border-radius: 14px;
-      padding: 12px;
-      cursor:pointer;
-      transition: transform .05s ease;
+    .stationCard .desc{
+      margin-top: 8px;
+      font-size: 13px;
+      color:#cbd5e1;
+      line-height: 1.35;
     }
-    .sCard:hover{ transform: translateY(-1px); border-color: rgba(99,102,241,.45); }
-    .sCard.active{
-      border-color: rgba(99,102,241,.65);
-      background: rgba(99,102,241,.12);
+    .stationCard .miniPills{
+      display:flex; flex-wrap:wrap; gap:8px;
+      margin-top: 10px;
     }
-    .sTitle{ font-weight: 800; margin-bottom: 6px; }
-    .sMeta{ font-size: 12px; color:#cbd5e1; opacity: .95; line-height: 1.25; }
+    .miniPills .pill{
+      padding: 5px 8px;
+      font-size: 12px;
+    }
+
+    .divider{
+      height:1px;
+      background: rgba(148,163,184,.14);
+      margin: 18px 0;
+    }
   </style>
 </head>
 
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>MMI Ethics Feedback</h1>
-      <div class="muted">
-        Pick a station. You’ll get domain scores + separate feedback for each question + rigid model answers (bullets + full).
+  <div class="card">
+    <!-- Header -->
+    <div class="header">
+      <img src="logo.png" alt="MedVaultUK" class="logo">
+      <div>
+        <h1>MedVault MMI Interview Tool</h1>
+        <div class="muted">
+          Instant feedback, realistic stations, and high-yield model answers (bullets + full) for UK medical school MMIs.
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW: Station picker -->
+    <div id="pickerView">
+      <div class="row">
+        <div>
+          <div style="font-weight:900; font-size:16px;">Choose a station</div>
+          <div class="muted">Pick one to open the full station. Your questions are pre-filled (not placeholders).</div>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button class="ghost" onclick="loadDemoStation()">Open Station 1 (demo)</button>
+        </div>
       </div>
 
-      <h2>Choose station</h2>
-      <div id="stationPicker" class="stationPicker"></div>
+      <div id="stationGrid" class="grid"></div>
+    </div>
+
+    <!-- VIEW: Station runner -->
+    <div id="stationView" style="display:none;">
+      <div class="row" style="align-items:flex-start;">
+        <div>
+          <div id="stationTitle" style="font-weight:900; font-size:18px;"></div>
+          <div id="stationSubtitle" class="muted"></div>
+        </div>
+        <button class="ghost" onclick="goBack()">← Back to stations</button>
+      </div>
 
       <label>Student name</label>
       <input id="studentName" placeholder="Type your name" />
 
-      <div id="stationArea" class="station"></div>
+      <div class="station">
+        <h3>Station brief</h3>
 
-      <button id="btn" onclick="submitAnswers()">Generate Feedback</button>
+        <div class="timings">
+          <div class="pill" id="pillRead">Reading: <b>2 minutes</b></div>
+          <div class="pill" id="pillResp">Response: <b>6 minutes</b></div>
+          <div class="pill" id="pillFollow">Follow-ups: <b>2 minutes</b></div>
+        </div>
 
-      <div id="output" class="result"></div>
+        <label>Station description (what the examiner is testing)</label>
+        <textarea id="stationDescription" readonly></textarea>
+
+        <div class="divider"></div>
+
+        <label>Main question</label>
+        <textarea id="qMain" readonly></textarea>
+        <label>Your answer (Main)</label>
+        <textarea id="aMain" placeholder="Type your spoken answer to the main question..."></textarea>
+
+        <div class="divider"></div>
+
+        <label>Follow-up 1</label>
+        <textarea id="qF1" readonly></textarea>
+        <label>Your answer (Follow-up 1)</label>
+        <textarea id="aF1" placeholder="Type your spoken answer to follow-up 1..."></textarea>
+
+        <div class="divider"></div>
+
+        <label>Follow-up 2</label>
+        <textarea id="qF2" readonly></textarea>
+        <label>Your answer (Follow-up 2)</label>
+        <textarea id="aF2" placeholder="Type your spoken answer to follow-up 2..."></textarea>
+
+        <div class="divider"></div>
+
+        <label>Follow-up 3</label>
+        <textarea id="qF3" readonly></textarea>
+        <label>Your answer (Follow-up 3)</label>
+        <textarea id="aF3" placeholder="Type your spoken answer to follow-up 3..."></textarea>
+      </div>
+
+      <button class="primary" onclick="submitStation()">Generate Feedback</button>
+
+      <div id="output" class="result" style="display:none;"></div>
     </div>
   </div>
 
 <script>
-  // Must match your backend station IDs in mark.js (STATIONS keys)
-  const STATIONS = [
-    {
-      id: "blood_transfusion_refusal",
-      title: "Refusal of life-saving blood transfusion",
-      short: "Autonomy vs beneficence, MCA, refusal of treatment",
-      timings: { reading: "2 minutes", response: "6 minutes", followups: "2 minutes" },
-      description:
-        "Ethics station assessing autonomy vs beneficence, capacity (Mental Capacity Act), informed refusal/consent, communication, escalation to seniors, documentation, and patient-centred care.",
-      prompts: {
-        main: "A patient refuses a life-saving blood transfusion for religious reasons. Discuss how you would approach this situation.",
-        f1: "What would you do if the patient did not have capacity?",
-        f2: "How would you involve the multidisciplinary team or family?",
-        f3: "Can you suggest any ethically acceptable alternatives?"
-      }
-    },
-    {
-      id: "confidentiality_breach",
-      title: "Confidentiality breach in corridor",
-      short: "Professionalism, confidentiality, escalation",
-      timings: { reading: "2 minutes", response: "6 minutes", followups: "2 minutes" },
-      description:
-        "Ethics/professionalism station assessing confidentiality, speaking up, managing colleagues, escalation pathways, and reflection.",
-      prompts: {
-        main: "You see a fellow student discussing identifiable patient information loudly in a corridor. What would you do?",
-        f1: "What would you do if they became defensive or dismissed your concerns?",
-        f2: "What if you think members of the public or other patients overheard?",
-        f3: "Explain why confidentiality matters in clinical practice."
-      }
-    },
-    {
-      id: "colleague_error",
-      title: "Medication dosing error",
-      short: "Patient safety, speaking up, duty of candour",
-      timings: { reading: "2 minutes", response: "6 minutes", followups: "2 minutes" },
-      description:
-        "Patient-safety station assessing recognising error, communication with colleague, escalation, duty of candour, and documenting/mitigating harm.",
-      prompts: {
-        main: "You notice a junior doctor has prescribed the wrong dose of a medication. What would you do?",
-        f1: "What would you do if they dismiss your concern or refuse to change it?",
-        f2: "What if the patient has already received the incorrect dose?",
-        f3: "Why is it important to speak up about errors in healthcare?"
-      }
-    },
-    {
-      id: "dnar_conflict",
-      title: "DNAR disagreement with family",
-      short: "Communication, best interests, conflict resolution",
-      timings: { reading: "2 minutes", response: "6 minutes", followups: "2 minutes" },
-      description:
-        "Ethics/communication station assessing DNAR principles, best interests, dealing with conflict and distress, and senior/MDT involvement.",
-      prompts: {
-        main: "A family insists you should attempt CPR despite a DNAR decision being in place. How would you approach this conversation and situation?",
-        f1: "What would you do if the family become angry or accuse the team of ‘giving up’?",
-        f2: "Who makes DNAR decisions, and what factors should be considered?",
-        f3: "How would you support the family while maintaining appropriate clinical decisions?"
-      }
-    },
-    {
-      id: "capacity_refusal",
-      title: "Refusal of surgery and capacity",
-      short: "MCA capacity assessment, autonomy, documentation",
-      timings: { reading: "2 minutes", response: "6 minutes", followups: "2 minutes" },
-      description:
-        "Ethics station assessing capacity (MCA), respecting refusal, exploring reasons, treating reversible causes, and best-interest decisions when capacity absent.",
-      prompts: {
-        main: "An elderly patient refuses a necessary operation that clinicians believe will significantly improve survival. How would you approach this?",
-        f1: "How would you assess capacity under the Mental Capacity Act?",
-        f2: "What would you do if capacity appears to fluctuate or is borderline?",
-        f3: "When (if ever) could treatment proceed without consent?"
-      }
-    },
-    {
-      id: "breaking_bad_news",
-      title: "Breaking bad news: new cancer diagnosis",
-      short: "Communication, empathy, structure (SPIKES)",
-      timings: { reading: "2 minutes", response: "6 minutes", followups: "2 minutes" },
-      description:
-        "Communication station assessing structure, empathy, clarity, checking understanding, supporting next steps, and signposting resources.",
-      prompts: {
-        main: "You need to explain a new cancer diagnosis to a patient. How would you do this?",
-        f1: "What would you do if the patient becomes very distressed or starts crying?",
-        f2: "What if the patient says they do not want to know any details?",
-        f3: "Why is empathy and checking understanding essential in these conversations?"
-      }
-    },
-    {
-      id: "team_conflict",
-      title: "Team conflict affecting care",
-      short: "Professionalism, teamwork, escalation",
-      timings: { reading: "2 minutes", response: "6 minutes", followups: "2 minutes" },
-      description:
-        "Professionalism station assessing teamworking, conflict resolution, patient safety, and escalation/leadership.",
-      prompts: {
-        main: "You notice tension and conflict within the clinical team and you think it is starting to affect patient care. What would you do?",
-        f1: "What if your attempt to raise concerns is ignored?",
-        f2: "Why is teamwork important for patient safety and outcomes?",
-        f3: "What behaviours make teamwork effective in a busy clinical environment?"
-      }
-    },
-    {
-      id: "cultural_refusal",
-      title: "Treatment refusal due to beliefs/culture",
-      short: "Cultural sensitivity, shared decision-making",
-      timings: { reading: "2 minutes", response: "6 minutes", followups: "2 minutes" },
-      description:
-        "Ethics station assessing culturally sensitive care, shared decision-making, respecting beliefs, and avoiding bias.",
-      prompts: {
-        main: "A patient refuses a recommended treatment due to cultural or religious beliefs. How would you approach this?",
-        f1: "How would you show respect for the patient’s beliefs while still providing good care?",
-        f2: "What would you do if the patient’s decision conflicts with your medical advice and you are worried about harm?",
-        f3: "How do you avoid bias and ensure the patient feels heard and safe?"
-      }
-    },
-    {
-      id: "consent_understanding",
-      title: "Consent: patient agrees but doesn’t understand",
-      short: "Valid consent, teach-back, capacity",
-      timings: { reading: "2 minutes", response: "6 minutes", followups: "2 minutes" },
-      description:
-        "Ethics station assessing valid informed consent, capacity, communication, teach-back, and documenting consent.",
-      prompts: {
-        main: "A patient says ‘yes’ to a procedure, but you suspect they do not understand what they are agreeing to. What would you do?",
-        f1: "What are the key requirements for valid consent?",
-        f2: "How would you check and improve understanding in a time-limited setting?",
-        f3: "Why is informed consent ethically and legally important?"
-      }
-    },
-    {
-      id: "social_media_boundary",
-      title: "Professional boundaries: social media request",
-      short: "Boundaries, professionalism, confidentiality",
-      timings: { reading: "2 minutes", response: "6 minutes", followups: "2 minutes" },
-      description:
-        "Professionalism station assessing boundaries, confidentiality risks, and appropriate online conduct.",
-      prompts: {
-        main: "A patient sends you a friend request on social media after a consultation. How would you respond?",
-        f1: "Why are professional boundaries important in healthcare?",
-        f2: "What are the potential risks of engaging with patients on social media?",
-        f3: "What principles should guide a doctor’s social media use?"
-      }
+/**
+ * IMPORTANT:
+ * This index assumes your Netlify function expects:
+ * POST /.netlify/functions/mark
+ * body: { stationId: string, answers: {main,f1,f2,f3}, name?: string }
+ *
+ * and returns:
+ * { scores: {...}, feedback: {main,f1,f2,f3}, models: station.models }
+ */
+
+const STATIONS_UI = {
+  // Station 1 (already good)
+  blood_transfusion_refusal: {
+    title: "Refusal of life-saving blood transfusion",
+    tag: "Ethics",
+    timings: { reading: 2, response: 6, followups: 2 },
+    description:
+`Ethics station assessing autonomy vs beneficence, capacity (Mental Capacity Act), informed refusal/consent, communication, escalation to seniors, documentation, and patient-centred care.
+Timings: 2 mins reading, 6 mins response, 2 mins follow-ups.`,
+    prompts: {
+      main: "A patient refuses a life-saving blood transfusion for religious reasons. Discuss how you would approach this situation.",
+      f1: "What would you do if the patient did not have capacity?",
+      f2: "How would you involve the multidisciplinary team or family?",
+      f3: "Can you suggest any ethically acceptable alternatives?"
     }
-  ];
+  },
 
-  let selectedStationId = STATIONS[0].id;
+  // Station 2 (already good)
+  confidentiality_breach: {
+    title: "Confidentiality breach in a public area",
+    tag: "Professionalism",
+    timings: { reading: 2, response: 6, followups: 2 },
+    description:
+`Professionalism & confidentiality station assessing GMC confidentiality principles, immediate risk management, respectful challenge, escalation pathways, and reflection/learning.
+Timings: 2 mins reading, 6 mins response, 2 mins follow-ups.`,
+    prompts: {
+      main: "You overhear a fellow student discussing identifiable patient information loudly in a hospital corridor. What would you do?",
+      f1: "If the student becomes defensive, how would you handle that conversation?",
+      f2: "If you think staff/patients overheard, what extra steps would you take?",
+      f3: "Explain why confidentiality matters in clinical practice."
+    }
+  },
 
-  function escapeHtml(s){
-    return String(s || "")
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;")
-      .replaceAll('"',"&quot;")
-      .replaceAll("'","&#039;");
+  // The rest: rewritten to be proper, not childish/one-liners
+  colleague_error: {
+    title: "Medication prescribing error noticed",
+    tag: "Patient safety",
+    timings: { reading: 2, response: 6, followups: 2 },
+    description:
+`Patient safety station assessing speaking up, managing hierarchy, error correction, duty of candour awareness, and teamwork/communication under pressure.
+Timings: 2 mins reading, 6 mins response, 2 mins follow-ups.`,
+    prompts: {
+      main: "You notice a junior doctor has prescribed an incorrect dose of a high-risk medication. Talk through what you would do next.",
+      f1: "If the doctor dismisses your concern, how would you escalate while maintaining professionalism?",
+      f2: "If the medication has already been administered, what immediate actions would you take?",
+      f3: "Why is it important to raise concerns about errors, even when it feels uncomfortable?"
+    }
+  },
+
+  dnar_conflict: {
+    title: "DNACPR disagreement with family",
+    tag: "Ethics",
+    timings: { reading: 2, response: 6, followups: 2 },
+    description:
+`Ethics & communication station assessing end-of-life discussion skills, explaining DNACPR scope, best-interests reasoning, de-escalation, and support for relatives.
+Timings: 2 mins reading, 6 mins response, 2 mins follow-ups.`,
+    prompts: {
+      main: "A patient has a DNACPR decision documented. Their family insists that CPR must be attempted. How would you approach this?",
+      f1: "If the relative becomes angry or distressed during the conversation, how would you respond?",
+      f2: "Who makes a DNACPR decision and what factors should be considered?",
+      f3: "How would you support the family while ensuring the patient’s best interests remain central?"
+    }
+  },
+
+  capacity_refusal: {
+    title: "Refusal of recommended treatment",
+    tag: "Capacity",
+    timings: { reading: 2, response: 6, followups: 2 },
+    description:
+`Capacity & consent station assessing Mental Capacity Act principles, assessing capacity, exploring reasons, shared decision-making, and documentation/safety-netting.
+Timings: 2 mins reading, 6 mins response, 2 mins follow-ups.`,
+    prompts: {
+      main: "An older patient refuses a recommended operation that clinicians believe is necessary. How would you manage this situation?",
+      f1: "How would you assess capacity in this context? (What are you specifically looking for?)",
+      f2: "If capacity appears to fluctuate during admission, what would you do?",
+      f3: "When, if ever, is it appropriate to treat without consent?"
+    }
+  },
+
+  breaking_bad_news: {
+    title: "Breaking bad news: new cancer diagnosis",
+    tag: "Communication",
+    timings: { reading: 2, response: 6, followups: 2 },
+    description:
+`Communication station assessing structure (e.g., SPIKES), empathy, checking understanding, responding to emotion, and safety-netting/next steps.
+Timings: 2 mins reading, 6 mins response, 2 mins follow-ups.`,
+    prompts: {
+      main: "You need to explain to a patient that their biopsy results show cancer. How would you do this?",
+      f1: "If the patient becomes tearful or overwhelmed, how would you respond in the moment?",
+      f2: "If the patient says they don’t want details, how would you balance that with informed decision-making?",
+      f3: "What follow-up support and safety-netting would you offer before ending the consultation?"
+    }
+  },
+
+  team_conflict: {
+    title: "Team conflict affecting patient care",
+    tag: "Teamwork",
+    timings: { reading: 2, response: 6, followups: 2 },
+    description:
+`Teamwork & professionalism station assessing managing conflict, maintaining patient safety, escalation, communication, and reflective practice.
+Timings: 2 mins reading, 6 mins response, 2 mins follow-ups.`,
+    prompts: {
+      main: "You notice tension between team members on a ward round and it’s starting to affect patient care. What would you do?",
+      f1: "If your attempt to address the issue is ignored, what would you do next?",
+      f2: "Why is teamwork particularly important in healthcare settings?",
+      f3: "What practical behaviours make teams work well day-to-day?"
+    }
+  },
+
+  cultural_refusal: {
+    title: "Treatment refusal due to cultural/religious beliefs",
+    tag: "Ethics",
+    timings: { reading: 2, response: 6, followups: 2 },
+    description:
+`Ethics & cultural competence station assessing respect, exploring beliefs, shared decision-making, addressing bias, use of interpreters/liaison services, and documenting preferences.
+Timings: 2 mins reading, 6 mins response, 2 mins follow-ups.`,
+    prompts: {
+      main: "A patient refuses a recommended treatment because of cultural or religious beliefs. How would you approach this conversation?",
+      f1: "How would you ensure you are respectful and not making assumptions about the patient’s beliefs?",
+      f2: "If their choice conflicts with your clinical advice, how would you support shared decision-making?",
+      f3: "What steps can you take to minimise unconscious bias in your own practice?"
+    }
+  },
+
+  consent_understanding: {
+    title: "Consent given but understanding is unclear",
+    tag: "Consent",
+    timings: { reading: 2, response: 6, followups: 2 },
+    description:
+`Consent station assessing valid informed consent, capacity, explaining risks/benefits/alternatives, teach-back, and documentation.
+Timings: 2 mins reading, 6 mins response, 2 mins follow-ups.`,
+    prompts: {
+      main: "A patient agrees to a procedure but it becomes clear they don’t understand what it involves. What would you do?",
+      f1: "What are the components of valid consent in UK practice?",
+      f2: "How would you check understanding in a time-pressured setting?",
+      f3: "Why does informed consent matter ethically and legally?"
+    }
+  },
+
+  social_media_boundary: {
+    title: "Professional boundaries: social media request",
+    tag: "Professionalism",
+    timings: { reading: 2, response: 6, followups: 2 },
+    description:
+`Professional boundaries station assessing professionalism, confidentiality risk, maintaining therapeutic relationships, and appropriate communication channels.
+Timings: 2 mins reading, 6 mins response, 2 mins follow-ups.`,
+    prompts: {
+      main: "A patient you saw recently sends you a friend request on social media. What would you do and why?",
+      f1: "Why are professional boundaries important in the doctor–patient relationship?",
+      f2: "What risks can arise if boundaries are blurred (for the patient and for you)?",
+      f3: "How should doctors approach their own social media use to stay professional?"
+    }
   }
+};
 
-  function renderStationPicker(){
-    const el = document.getElementById("stationPicker");
-    el.innerHTML = STATIONS.map(st => `
-      <div class="sCard ${st.id === selectedStationId ? "active":""}" onclick="selectStation('${st.id}')">
-        <div class="sTitle">${escapeHtml(st.title)}</div>
-        <div class="sMeta">${escapeHtml(st.short)}</div>
+let currentStationId = null;
+
+// Build station picker cards
+function renderStationCards(){
+  const grid = document.getElementById("stationGrid");
+  grid.innerHTML = "";
+
+  Object.entries(STATIONS_UI).forEach(([id, st]) => {
+    const el = document.createElement("div");
+    el.className = "stationCard";
+    el.onclick = () => openStation(id);
+
+    el.innerHTML = `
+      <div class="top">
+        <div>
+          <div class="name">${escapeHtml(st.title)}</div>
+        </div>
+        <div class="tag">${escapeHtml(st.tag)}</div>
       </div>
-    `).join("");
-  }
-
-  function selectStation(id){
-    selectedStationId = id;
-    renderStationPicker();
-    renderStationForm();
-    // clear previous output when switching station
-    document.getElementById("output").innerHTML = "";
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  function renderStationForm(){
-    const st = STATIONS.find(x => x.id === selectedStationId);
-    const area = document.getElementById("stationArea");
-
-    area.innerHTML = `
-      <h2>Station brief</h2>
-
-      <div class="timings">
-        <div class="pill">Reading: <b>${escapeHtml(st.timings.reading)}</b></div>
-        <div class="pill">Response: <b>${escapeHtml(st.timings.response)}</b></div>
-        <div class="pill">Follow-ups: <b>${escapeHtml(st.timings.followups)}</b></div>
+      <div class="desc">${escapeHtml(st.description.split("\n")[0])}</div>
+      <div class="miniPills">
+        <div class="pill">Reading: <b>${st.timings.reading}m</b></div>
+        <div class="pill">Response: <b>${st.timings.response}m</b></div>
+        <div class="pill">Follow-ups: <b>${st.timings.followups}m</b></div>
       </div>
-
-      <label>Station description (what the examiner is testing)</label>
-      <div class="qbox">${escapeHtml(st.description)}</div>
-
-      <label>Main ethics question</label>
-      <div class="qbox">${escapeHtml(st.prompts.main)}</div>
-
-      <label>Your answer (Main)</label>
-      <textarea id="a_main" placeholder="Type your spoken answer to the main question..."></textarea>
-
-      <h3>Follow-up 1</h3>
-      <div class="qbox">${escapeHtml(st.prompts.f1)}</div>
-      <label>Your answer (Follow-up 1)</label>
-      <textarea id="a_f1" placeholder="Type your spoken answer to follow-up 1..."></textarea>
-
-      <h3>Follow-up 2</h3>
-      <div class="qbox">${escapeHtml(st.prompts.f2)}</div>
-      <label>Your answer (Follow-up 2)</label>
-      <textarea id="a_f2" placeholder="Type your spoken answer to follow-up 2..."></textarea>
-
-      <h3>Follow-up 3</h3>
-      <div class="qbox">${escapeHtml(st.prompts.f3)}</div>
-      <label>Your answer (Follow-up 3)</label>
-      <textarea id="a_f3" placeholder="Type your spoken answer to follow-up 3..."></textarea>
     `;
+    grid.appendChild(el);
+  });
+}
+
+function loadDemoStation(){
+  openStation("blood_transfusion_refusal");
+}
+
+function goBack(){
+  currentStationId = null;
+  document.getElementById("stationView").style.display = "none";
+  document.getElementById("pickerView").style.display = "block";
+  document.getElementById("output").style.display = "none";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function openStation(stationId){
+  const st = STATIONS_UI[stationId];
+  if(!st) return;
+
+  currentStationId = stationId;
+
+  // swap views
+  document.getElementById("pickerView").style.display = "none";
+  document.getElementById("stationView").style.display = "block";
+
+  // title/subtitle
+  document.getElementById("stationTitle").textContent = st.title;
+  document.getElementById("stationSubtitle").textContent = `${st.tag} station • Read ${st.timings.reading}m • Answer ${st.timings.response}m • Follow-ups ${st.timings.followups}m`;
+
+  // pills
+  document.getElementById("pillRead").innerHTML = `Reading: <b>${st.timings.reading} minutes</b>`;
+  document.getElementById("pillResp").innerHTML = `Response: <b>${st.timings.response} minutes</b>`;
+  document.getElementById("pillFollow").innerHTML = `Follow-ups: <b>${st.timings.followups} minutes</b>`;
+
+  // description
+  document.getElementById("stationDescription").value = st.description;
+
+  // questions (pre-filled, not placeholders)
+  document.getElementById("qMain").value = st.prompts.main;
+  document.getElementById("qF1").value = st.prompts.f1;
+  document.getElementById("qF2").value = st.prompts.f2;
+  document.getElementById("qF3").value = st.prompts.f3;
+
+  // clear answers
+  document.getElementById("aMain").value = "";
+  document.getElementById("aF1").value = "";
+  document.getElementById("aF2").value = "";
+  document.getElementById("aF3").value = "";
+
+  document.getElementById("output").style.display = "none";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function submitStation(){
+  const out = document.getElementById("output");
+  out.style.display = "block";
+  out.innerHTML = `<pre>Marking…</pre>`;
+
+  if(!currentStationId){
+    out.innerHTML = `<div class="err"><b>Error:</b> No station selected.</div>`;
+    return;
   }
 
-  function renderResult(data){
-    const s = data.scores || {};
-    const fb = data.feedback || {};
-    const models = (data.models || {}); // comes from backend: station.models
+  const payload = {
+    stationId: currentStationId,
+    name: document.getElementById("studentName").value || "",
+    answers: {
+      main: document.getElementById("aMain").value || "",
+      f1: document.getElementById("aF1").value || "",
+      f2: document.getElementById("aF2").value || "",
+      f3: document.getElementById("aF3").value || ""
+    }
+  };
 
-    const out = document.getElementById("output");
+  try{
+    const res = await fetch("/.netlify/functions/mark", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const text = await res.text();
+
+    let data;
+    try{
+      data = JSON.parse(text);
+    }catch(e){
+      out.innerHTML = `<div class="err"><b>Error:</b> Function didn’t return JSON.</div><pre>${escapeHtml(text)}</pre>`;
+      return;
+    }
+
+    if(!res.ok || data.error){
+      out.innerHTML = `<div class="err"><b>Error:</b> ${escapeHtml(data.error || "Request failed")}</div><pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
+      return;
+    }
+
+    // Render results
+    const name = (payload.name || "").trim();
+    const displayName = name ? escapeHtml(name) : "Candidate";
+
+    const scores = data.scores || {};
+    const fb = data.feedback || {};
+    const models = (data.models) || {}; // from backend: station.models
+
     out.innerHTML = `
-      <h2>${escapeHtml(document.getElementById("studentName").value || "Candidate")}</h2>
+      <div style="font-weight:900; font-size:18px; margin-bottom:10px;">${displayName}</div>
 
       <div class="scores">
-        <div class="scoreCard">Overall <span>${escapeHtml(s.overall)}/10</span></div>
-        <div class="scoreCard">Empathy <span>${escapeHtml(s.empathy)}/10</span></div>
-        <div class="scoreCard">Communication <span>${escapeHtml(s.communication)}/10</span></div>
-        <div class="scoreCard">Ethics <span>${escapeHtml(s.ethics)}/10</span></div>
-        <div class="scoreCard">Insight <span>${escapeHtml(s.insight)}/10</span></div>
+        <div class="scoreBox">Overall: <span>${safeScore(scores.overall)}/10</span></div>
+        <div class="scoreBox">Empathy: <span>${safeScore(scores.empathy)}/10</span></div>
+        <div class="scoreBox">Communication: <span>${safeScore(scores.communication)}/10</span></div>
+        <div class="scoreBox">Ethics: <span>${safeScore(scores.ethics)}/10</span></div>
+        <div class="scoreBox">Insight: <span>${safeScore(scores.insight)}/10</span></div>
       </div>
 
-      <div class="divider"></div>
+      <div class="sectionTitle">Feedback — Main question</div>
+      <div>${escapeHtml(fb.main || "")}</div>
+      ${renderModelBlock("Main", models.main)}
 
-      <h2>Feedback — Main question</h2>
-      <div class="qbox">${escapeHtml(fb.main || "")}</div>
+      <div class="sectionTitle">Feedback — Follow-up 1</div>
+      <div>${escapeHtml(fb.f1 || "")}</div>
+      ${renderModelBlock("Follow-up 1", models.f1)}
 
-      <h3>Model — Main (bullets)</h3>
-      <pre class="mono">${escapeHtml(models.main?.bullets || "")}</pre>
+      <div class="sectionTitle">Feedback — Follow-up 2</div>
+      <div>${escapeHtml(fb.f2 || "")}</div>
+      ${renderModelBlock("Follow-up 2", models.f2)}
 
-      <h3>Model — Main (full)</h3>
-      <pre class="mono">${escapeHtml(models.main?.full || "")}</pre>
-
-      <div class="divider"></div>
-
-      <h2>Feedback — Follow-up 1</h2>
-      <div class="qbox">${escapeHtml(fb.f1 || "")}</div>
-
-      <h3>Model — Follow-up 1 (bullets)</h3>
-      <pre class="mono">${escapeHtml(models.f1?.bullets || "")}</pre>
-
-      <h3>Model — Follow-up 1 (full)</h3>
-      <pre class="mono">${escapeHtml(models.f1?.full || "")}</pre>
-
-      <div class="divider"></div>
-
-      <h2>Feedback — Follow-up 2</h2>
-      <div class="qbox">${escapeHtml(fb.f2 || "")}</div>
-
-      <h3>Model — Follow-up 2 (bullets)</h3>
-      <pre class="mono">${escapeHtml(models.f2?.bullets || "")}</pre>
-
-      <h3>Model — Follow-up 2 (full)</h3>
-      <pre class="mono">${escapeHtml(models.f2?.full || "")}</pre>
-
-      <div class="divider"></div>
-
-      <h2>Feedback — Follow-up 3</h2>
-      <div class="qbox">${escapeHtml(fb.f3 || "")}</div>
-
-      <h3>Model — Follow-up 3 (bullets)</h3>
-      <pre class="mono">${escapeHtml(models.f3?.bullets || "")}</pre>
-
-      <h3>Model — Follow-up 3 (full)</h3>
-      <pre class="mono">${escapeHtml(models.f3?.full || "")}</pre>
+      <div class="sectionTitle">Feedback — Follow-up 3</div>
+      <div>${escapeHtml(fb.f3 || "")}</div>
+      ${renderModelBlock("Follow-up 3", models.f3)}
     `;
+
+    // jump to results
+    out.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  }catch(err){
+    out.innerHTML = `<div class="err"><b>Error:</b> ${escapeHtml(String(err))}</div>`;
   }
+}
 
-  async function submitAnswers(){
-    const btn = document.getElementById("btn");
-    const out = document.getElementById("output");
-    out.innerHTML = `<div class="muted">Marking…</div>`;
+function renderModelBlock(label, modelObj){
+  if(!modelObj) return "";
+  const bullets = modelObj.bullets || "";
+  const full = modelObj.full || "";
+  return `
+    <div style="margin-top:12px; font-weight:900;">Model — ${escapeHtml(label)} (bullets)</div>
+    <pre style="margin-top:8px;">${escapeHtml(bullets)}</pre>
+    <div style="margin-top:14px; font-weight:900;">Model — ${escapeHtml(label)} (full)</div>
+    <pre style="margin-top:8px;">${escapeHtml(full)}</pre>
+  `;
+}
 
-    btn.disabled = true;
+function safeScore(n){
+  const x = Number(n);
+  if(Number.isFinite(x)) return Math.max(0, Math.min(10, Math.round(x)));
+  return "–";
+}
 
-    const payload = {
-      stationId: selectedStationId,
-      answers: {
-        main: (document.getElementById("a_main")?.value || "").trim(),
-        f1: (document.getElementById("a_f1")?.value || "").trim(),
-        f2: (document.getElementById("a_f2")?.value || "").trim(),
-        f3: (document.getElementById("a_f3")?.value || "").trim()
-      }
-    };
+function escapeHtml(str){
+  return String(str)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
 
-    try{
-      const res = await fetch("/.netlify/functions/mark", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      const text = await res.text();
-
-      let data;
-      try{
-        data = JSON.parse(text);
-      } catch(e){
-        out.innerHTML = `<div class="err"><b>Error:</b> Function didn’t return JSON.</div><pre class="mono">${escapeHtml(text)}</pre>`;
-        btn.disabled = false;
-        return;
-      }
-
-      if (!res.ok || data.error){
-        out.innerHTML = `<div class="err"><b>Error:</b> ${escapeHtml(data.error || "Request failed")}</div>
-          <pre class="mono">${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
-        btn.disabled = false;
-        return;
-      }
-
-      renderResult(data);
-      btn.disabled = false;
-
-    } catch(err){
-      out.innerHTML = `<div class="err"><b>Error:</b> ${escapeHtml(String(err))}</div>`;
-      btn.disabled = false;
-    }
-  }
-
-  // initial render
-  renderStationPicker();
-  renderStationForm();
+// Init
+renderStationCards();
 </script>
-
 </body>
 </html>
