@@ -2,41 +2,30 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>MedVault — Station</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MedVault MMI Station</title>
 
   <style>
     :root{
-      --bg:#0b1224;
-      --panel:rgba(17,24,39,.78);
-      --panel2:rgba(17,24,39,.55);
+      --bg:#0f172a;
+      --card:#111827;
       --border:rgba(148,163,184,.18);
-      --text:#e5e7eb;
       --muted:#94a3b8;
-      --muted2:#cbd5e1;
-      --brand:rgba(99,102,241,1);
-      --brand2:rgba(99,102,241,.12);
-      --brandBorder:rgba(99,102,241,.40);
-      --danger:#fca5a5;
-      --danger2:rgba(239,68,68,.15);
-      --ok:#86efac;
-      --warn:#fde68a;
+      --text:#e5e7eb;
+      --accent:#6366f1;
+      --danger:#ef4444;
     }
-
-    *{box-sizing:border-box}
     body{
       margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
-      background: radial-gradient(1200px 800px at 50% 0%, rgba(99,102,241,.20), transparent 60%), var(--bg);
+      font-family:Arial,Helvetica,sans-serif;
+      background:radial-gradient(1200px 600px at 50% 0%, rgba(99,102,241,.18), transparent 60%), var(--bg);
       color:var(--text);
     }
-
     .container{
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 22px 16px 56px;
+      max-width:1100px;
+      margin:auto;
+      padding:28px 18px 60px;
     }
-
     .topbar{
       display:flex;
       align-items:center;
@@ -44,295 +33,147 @@
       gap:12px;
       margin-bottom:14px;
     }
-
     .back{
       display:inline-flex;
       align-items:center;
       gap:8px;
       padding:10px 12px;
-      border-radius:12px;
       border:1px solid var(--border);
-      background:rgba(15,23,42,.55);
+      background:rgba(17,24,39,.65);
       color:var(--text);
+      border-radius:10px;
       text-decoration:none;
       font-size:14px;
     }
-
-    .brandMark{
+    .brand{
       display:flex;
       align-items:center;
       gap:10px;
       opacity:.95;
     }
-    .brandMark img{
-      width:40px;
-      height:40px;
-      object-fit:cover;
+    .brand img{
+      width:34px;
+      height:34px;
       border-radius:10px;
       border:1px solid var(--border);
-      background:rgba(255,255,255,.03);
+      object-fit:cover;
     }
-    .brandMark .txt{
-      font-size:13px;
-      color:var(--muted);
-      line-height:1.1;
-      text-align:right;
-    }
-    .brandMark .txt b{ color:var(--text); font-weight:700; display:block; }
-
-    .panel{
-      border:1px solid var(--border);
-      background: linear-gradient(180deg, rgba(17,24,39,.80), rgba(17,24,39,.55));
-      border-radius: 16px;
-      padding: 16px;
-      box-shadow: 0 18px 50px rgba(0,0,0,.25);
-    }
-
-    .stationHead{
-      display:flex;
-      gap:16px;
-      align-items:flex-start;
-      justify-content:space-between;
-      flex-wrap:wrap;
-      margin-bottom:10px;
-    }
-
-    h1{
-      margin:0;
-      font-size: 26px;
-      letter-spacing:-.02em;
-    }
-    .desc{
-      margin-top:6px;
-      color:var(--muted);
+    .brand span{
+      font-weight:700;
       font-size:14px;
-      max-width: 820px;
+      color:var(--text);
     }
 
-    .pills{
+    .card{
+      background:rgba(17,24,39,.72);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:16px;
+      box-shadow:0 10px 30px rgba(0,0,0,.25);
+    }
+    h1{
+      margin:0 0 6px 0;
+      font-size:22px;
+    }
+    .meta{
       display:flex;
-      gap:8px;
       flex-wrap:wrap;
-      margin-top:10px;
+      gap:8px;
+      margin:10px 0 14px;
     }
-
     .pill{
       font-size:12px;
       border:1px solid rgba(148,163,184,.25);
-      padding:6px 10px;
+      padding:4px 10px;
       border-radius:999px;
-      color:var(--muted2);
-      background:rgba(15,23,42,.35);
+      color:#cbd5e1;
+      background:rgba(15,23,42,.4);
     }
-
-    .formRow{
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:12px;
-      margin-top:14px;
-    }
-
-    label{
-      display:block;
+    .desc{
+      color:var(--muted);
       font-size:13px;
-      color:var(--muted2);
+      margin:0 0 14px 0;
+      line-height:1.45;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:12px;
+    }
+    @media (min-width: 900px){
+      .grid.two{
+        grid-template-columns:1fr 1fr;
+      }
+    }
+
+    .block{
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:12px;
+      padding:12px;
+      background:rgba(15,23,42,.25);
+    }
+    .label{
+      font-size:12px;
+      color:var(--muted);
       margin-bottom:6px;
     }
-
-    input[type="text"], textarea{
+    .q{
+      font-weight:700;
+      margin:0 0 8px 0;
+      font-size:16px;
+      line-height:1.35;
+    }
+    input, textarea{
       width:100%;
-      border-radius:12px;
-      border:1px solid var(--border);
-      background:rgba(15,23,42,.40);
+      box-sizing:border-box;
+      background:rgba(2,6,23,.45);
+      border:1px solid rgba(148,163,184,.20);
       color:var(--text);
-      padding:12px 12px;
-      font-size:14px;
+      border-radius:12px;
+      padding:12px;
       outline:none;
+      font-size:14px;
     }
     textarea{ min-height:110px; resize:vertical; }
-
-    .grid2{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
-      margin-top:12px;
-    }
-    @media (max-width: 860px){
-      .grid2{ grid-template-columns: 1fr; }
-    }
-
-    .qCard{
-      border:1px solid var(--border);
-      background:rgba(15,23,42,.28);
-      border-radius:14px;
-      padding:14px;
-    }
-
-    .qTitle{
-      font-size:15px;
-      font-weight:700;
-      margin:0 0 6px;
-    }
-    .qPrompt{
-      font-size:18px;
-      font-weight:800;
-      line-height:1.25;
-      margin: 0 0 12px;
-      color: var(--text);
-    }
-    .qPrompt.small{
-      font-size:16px;
-      font-weight:750;
-      color: rgba(229,231,235,.95);
-    }
+    input:focus, textarea:focus{ border-color:rgba(99,102,241,.55); }
 
     .actions{
       display:flex;
-      gap:10px;
       align-items:center;
-      flex-wrap:wrap;
+      gap:12px;
       margin-top:12px;
+      flex-wrap:wrap;
     }
-
-    .btn{
-      appearance:none;
-      border:0;
-      border-radius: 14px;
-      padding: 12px 16px;
-      font-weight:700;
-      font-size:14px;
+    button{
+      background:var(--accent);
       color:white;
-      background: linear-gradient(90deg, rgba(99,102,241,1), rgba(139,92,246,1));
+      border:none;
+      padding:12px 16px;
+      border-radius:12px;
+      font-weight:700;
       cursor:pointer;
+      font-size:14px;
     }
-    .btn:disabled{
-      opacity:.65;
-      cursor:not-allowed;
-    }
-
-    .hint{
+    button:disabled{ opacity:.6; cursor:not-allowed; }
+    .tip{
       color:var(--muted);
       font-size:13px;
     }
-
+    .err{
+      margin-top:12px;
+      padding:12px;
+      border-radius:12px;
+      border:1px solid rgba(239,68,68,.35);
+      background:rgba(239,68,68,.10);
+      color:#fecaca;
+      white-space:pre-wrap;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      display:none;
+    }
     .result{
       margin-top:14px;
-      border-radius:14px;
-      border:1px solid var(--border);
-      background:rgba(15,23,42,.25);
-      padding:14px;
-    }
-
-    .err{
-      border-color: rgba(239,68,68,.35);
-      background: var(--danger2);
-      color: var(--danger);
-      white-space:pre-wrap;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 13px;
-      padding: 12px;
-      border-radius: 12px;
-      margin-top: 10px;
-    }
-
-    .scores{
-      display:grid;
-      grid-template-columns: repeat(5, minmax(120px, 1fr));
-      gap:10px;
-      margin-bottom:10px;
-    }
-    @media (max-width: 980px){
-      .scores{ grid-template-columns: repeat(2, 1fr); }
-    }
-    .scoreBox{
-      border:1px solid var(--border);
-      border-radius:14px;
-      background:rgba(17,24,39,.45);
-      padding:10px 12px;
-    }
-    .scoreBox b{ display:block; font-size:12px; color:var(--muted); font-weight:700; }
-    .scoreBox span{ display:block; font-size:18px; font-weight:900; margin-top:4px; }
-
-    .sectionH{
-      margin-top:12px;
-      font-size:14px;
-      font-weight:900;
-      color:var(--text);
-    }
-
-    .fbGrid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-      margin-top:8px;
-    }
-    @media (max-width: 860px){
-      .fbGrid{ grid-template-columns: 1fr; }
-    }
-    .fbBox{
-      border:1px solid var(--border);
-      border-radius:14px;
-      background:rgba(17,24,39,.35);
-      padding:12px;
-    }
-    .fbBox .k{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:800;
-      margin-bottom:6px;
-      text-transform:uppercase;
-      letter-spacing:.03em;
-    }
-    .fbBox .v{
-      color:rgba(229,231,235,.95);
-      font-size:14px;
-      line-height:1.45;
-      white-space:pre-wrap;
-    }
-
-    .modelsGrid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-      margin-top:8px;
-    }
-    @media (max-width: 860px){
-      .modelsGrid{ grid-template-columns: 1fr; }
-    }
-
-    .modelBox{
-      border:1px solid rgba(99,102,241,.28);
-      background: rgba(99,102,241,.08);
-      border-radius:14px;
-      padding:12px;
-    }
-    .modelBox .k{
-      font-size:12px;
-      font-weight:900;
-      color:rgba(199,210,254,.95);
-      margin-bottom:8px;
-      text-transform:uppercase;
-      letter-spacing:.03em;
-    }
-    .modelBox .subk{
-      font-size:12px;
-      color:rgba(199,210,254,.80);
-      font-weight:800;
-      margin-top:8px;
-      margin-bottom:6px;
-    }
-    .modelBox .v{
-      font-size:14px;
-      color:rgba(229,231,235,.95);
-      line-height:1.45;
-      white-space:pre-wrap;
-    }
-
-    .footerNote{
-      margin-top:14px;
-      color:var(--muted);
-      font-size:12px;
-      text-align:center;
+      display:none;
     }
   </style>
 </head>
@@ -341,101 +182,95 @@
   <div class="container">
     <div class="topbar">
       <a class="back" href="index.html">← Back</a>
-
-      <div class="brandMark">
-        <div class="txt"><b>MedVault</b>MMI feedback</div>
-        <img src="logo.png" alt="MedVault logo" />
+      <div class="brand">
+        <img src="logo.png" alt="MedVaultUK">
+        <span>MedVaultUK</span>
       </div>
     </div>
 
-    <div class="panel">
-      <div class="stationHead">
-        <div>
-          <h1 id="stationTitle">Station</h1>
-          <div class="desc" id="stationDesc"></div>
-          <div class="pills">
-            <div class="pill">Reading: 2m</div>
-            <div class="pill">Response: 6m</div>
-            <div class="pill">Follow-ups: 2m</div>
-          </div>
+    <div class="card">
+      <h1 id="stationTitle">Station</h1>
+      <div class="meta">
+        <span class="pill">Reading: 2m</span>
+        <span class="pill">Response: 6m</span>
+        <span class="pill">Follow-ups: 2m</span>
+      </div>
+      <p class="desc" id="stationDesc"></p>
+
+      <!-- IMPORTANT: no <form> tag (prevents accidental refresh submit) -->
+      <div class="grid">
+        <div class="block">
+          <div class="label">Student name</div>
+          <input id="studentName" placeholder="Type your name" />
+        </div>
+
+        <div class="block">
+          <div class="label">Main question</div>
+          <div class="q" id="qMain">Loading…</div>
+          <div class="label">Your answer (Main)</div>
+          <textarea id="aMain" placeholder="Type your spoken answer to the main question…"></textarea>
         </div>
       </div>
 
-      <div class="formRow">
-        <div>
-          <label for="studentName">Student name</label>
-          <input id="studentName" type="text" placeholder="Type your name" />
-        </div>
-      </div>
-
-      <div class="grid2">
-        <div class="qCard" id="blockMain">
-          <div class="qTitle">Main question</div>
-          <div class="qPrompt" id="qMain"></div>
-          <label for="aMain">Your answer (Main)</label>
-          <textarea id="aMain" placeholder="Type your spoken answer to the main question..."></textarea>
+      <div class="grid two" style="margin-top:12px;">
+        <div class="block">
+          <div class="label">Follow-up 1</div>
+          <div class="q" id="qF1">Loading…</div>
+          <div class="label">Your answer (Follow-up 1)</div>
+          <textarea id="aF1" placeholder="Type your spoken answer to follow-up 1…"></textarea>
         </div>
 
-        <div class="qCard" id="blockF1">
-          <div class="qTitle">Follow-up 1</div>
-          <div class="qPrompt small" id="qF1"></div>
-          <label for="aF1">Your answer (Follow-up 1)</label>
-          <textarea id="aF1" placeholder="Type your spoken answer to follow-up 1..."></textarea>
+        <div class="block">
+          <div class="label">Follow-up 2</div>
+          <div class="q" id="qF2">Loading…</div>
+          <div class="label">Your answer (Follow-up 2)</div>
+          <textarea id="aF2" placeholder="Type your spoken answer to follow-up 2…"></textarea>
         </div>
 
-        <div class="qCard" id="blockF2">
-          <div class="qTitle">Follow-up 2</div>
-          <div class="qPrompt small" id="qF2"></div>
-          <label for="aF2">Your answer (Follow-up 2)</label>
-          <textarea id="aF2" placeholder="Type your spoken answer to follow-up 2..."></textarea>
-        </div>
-
-        <div class="qCard" id="blockF3">
-          <div class="qTitle">Follow-up 3</div>
-          <div class="qPrompt small" id="qF3"></div>
-          <label for="aF3">Your answer (Follow-up 3)</label>
-          <textarea id="aF3" placeholder="Type your spoken answer to follow-up 3..."></textarea>
+        <div class="block" style="grid-column:1/-1;">
+          <div class="label">Follow-up 3</div>
+          <div class="q" id="qF3">Loading…</div>
+          <div class="label">Your answer (Follow-up 3)</div>
+          <textarea id="aF3" placeholder="Type your spoken answer to follow-up 3…"></textarea>
         </div>
       </div>
 
       <div class="actions">
-        <button class="btn" id="btn" onclick="generate()">Generate feedback</button>
-        <div class="hint" id="hint">Tip: write how you’d speak it in a timed MMI (clear + structured).</div>
+        <button id="btn" type="button">Generate feedback</button>
+        <div class="tip">Tip: write how you’d speak it in a timed MMI (clear + structured).</div>
       </div>
 
-      <div id="out" class="result" style="display:none;"></div>
-      <div id="err" class="err" style="display:none;"></div>
-
-      <div class="footerNote">If feedback is slow, try shorter answers (or retry once). Very long outputs can time out on free hosting.</div>
+      <div id="err" class="err"></div>
+      <div id="out" class="result"></div>
     </div>
   </div>
 
   <script>
-    // MUST match backend STATIONS keys in netlify/functions/mark.js
+    // --- Station content (must match stationId values in index.html cards) ---
     const STATIONS_META = {
       blood_transfusion_refusal: {
         title: "Refusal of life-saving blood transfusion",
-        desc: "Ethics station assessing autonomy vs beneficence, capacity (Mental Capacity Act), informed refusal, communication, escalation, and documentation.",
+        desc: "Ethics station assessing autonomy vs beneficence, capacity (Mental Capacity Act), informed refusal/consent, escalation and documentation.",
         prompts: {
           main: "A patient refuses a life-saving blood transfusion for religious reasons. Discuss how you would approach this situation.",
           f1: "What would you do if the patient did not have capacity?",
           f2: "How would you involve the multidisciplinary team or family appropriately?",
-          f3: "What alternatives or blood-sparing strategies could be considered, if acceptable?"
+          f3: "Can you suggest any ethically acceptable alternatives?"
         }
       },
       confidentiality_breach: {
         title: "Confidentiality breach in a public area",
-        desc: "Professionalism station assessing GMC confidentiality principles, respectful challenge, escalation pathways, and reflection/learning.",
+        desc: "Professionalism & confidentiality: challenging colleagues respectfully, escalation, risk management, and reflection/learning.",
         prompts: {
           main: "You overhear a medical student discussing an identifiable patient loudly in a corridor. What do you do?",
           f1: "How would you handle it if they become defensive or dismissive?",
-          f2: "What steps would you take if members of the public/other patients overheard?",
-          f3: "What key points would you include in a short reflection about this incident?"
+          f2: "What steps would you take if you believe members of the public/other patients overheard?",
+          f3: "What key points would you include in a reflection about this incident?"
         }
       },
       colleague_error: {
         title: "Medication prescribing error noticed",
-        desc: "Patient safety station assessing speaking up, managing hierarchy, error prevention, duty of candour awareness, and team communication.",
+        desc: "Patient safety station assessing speaking up, managing hierarchy, error correction, duty of candour and teamwork.",
         prompts: {
           main: "You notice a junior doctor has prescribed a potentially harmful dose of a medication. Talk through exactly what you would do.",
           f1: "What would you do if the doctor insists the prescription is correct and refuses to change it?",
@@ -445,57 +280,57 @@
       },
       dnar_conflict: {
         title: "DNACPR disagreement with family",
-        desc: "Ethics & communication station assessing end-of-life discussion skills, explaining DNACPR scope, best-interests reasoning, de-escalation, and compassion.",
+        desc: "Ethics & communication: explaining DNACPR scope, best-interests reasoning, conflict de-escalation, and supporting relatives.",
         prompts: {
           main: "A patient has a DNACPR decision documented. The family insist that ‘everything must be done’ and demand CPR. How do you respond?",
-          f1: "How would you respond if the family become angry or accusatory?",
+          f1: "How would you explain what DNACPR does and does not mean?",
           f2: "Who is involved in making DNACPR decisions and what is the family’s role?",
-          f3: "How would you support the family emotionally while maintaining trust?"
+          f3: "What would you do if the conversation becomes heated or threatening?"
         }
       },
       capacity_refusal: {
         title: "Refusal of recommended treatment",
-        desc: "Capacity & consent station assessing Mental Capacity Act principles, assessing capacity, exploring reasons, shared decision-making, and safety-netting.",
+        desc: "Capacity & consent: assessing capacity, exploring reasons, shared decision-making, documentation and safety-netting.",
         prompts: {
-          main: "An older patient refuses a recommended treatment that could prevent serious harm. How would you approach this consultation?",
-          f1: "How would you assess capacity in this situation (what are the key components)?",
-          f2: "If capacity is fluctuating, how would you manage decisions and documentation?",
-          f3: "When (if ever) can treatment be given without consent in this context?"
+          main: "A competent adult refuses a recommended treatment that is likely to prevent serious harm. How do you approach this?",
+          f1: "How would you assess capacity in this situation?",
+          f2: "How would you explore their reasons and support shared decision-making without pressuring them?",
+          f3: "What documentation and safety-netting would you put in place?"
         }
       },
       breaking_bad_news: {
         title: "Breaking bad news: new cancer diagnosis",
-        desc: "Communication station assessing structure (e.g., SPIKES), empathy, checking understanding, responding to emotion, and next steps/safety-netting.",
+        desc: "Communication station assessing structure (SPIKES), empathy, checking understanding, responding to emotion, and next steps.",
         prompts: {
-          main: "You need to explain a new cancer diagnosis to a patient. How would you do this?",
-          f1: "What would you do if the patient becomes very distressed or tearful?",
+          main: "You need to tell a patient their results suggest a new cancer diagnosis. How would you deliver this conversation?",
+          f1: "How would you respond if they become tearful or angry?",
           f2: "What if the patient says they don’t want details right now?",
-          f3: "How would you safety-net and plan the next steps at the end of the conversation?"
+          f3: "What safety-netting and follow-up would you arrange after the discussion?"
         }
       },
       team_conflict: {
         title: "Team conflict affecting patient care",
-        desc: "Teamwork & professionalism station assessing managing disagreement, communication, escalation, and protecting patient safety.",
+        desc: "Teamwork & professionalism: managing disagreement, escalation, communication, and protecting patient safety.",
         prompts: {
-          main: "You notice conflict between team members is affecting patient care on the ward. What would you do?",
-          f1: "What would you do if your initial attempt to address it is ignored?",
-          f2: "Why is effective teamwork important for patient outcomes and safety?",
-          f3: "What practical behaviours make teamwork effective in a clinical setting?"
+          main: "Two staff members are openly arguing on the ward and it’s affecting patient care. What do you do?",
+          f1: "How would you address this if one of them is senior to you?",
+          f2: "What if the conflict is causing delays to urgent treatment?",
+          f3: "How would you reflect and prevent this happening again?"
         }
       },
       cultural_refusal: {
         title: "Treatment refusal due to cultural/religious beliefs",
-        desc: "Ethics & cultural competence station assessing respect, exploring beliefs, shared decisions, interpreter/chaplaincy use, and avoiding bias.",
+        desc: "Ethics & cultural competence: respectful exploration of beliefs, shared decisions, interpreter support, avoiding bias, documentation.",
         prompts: {
-          main: "A patient refuses an important treatment because of cultural or religious beliefs. How do you approach this?",
-          f1: "How would you ensure your communication is culturally safe and the patient feels respected?",
-          f2: "If refusal risks significant harm, how would you explore acceptable alternatives and involve the MDT?",
-          f3: "How would you avoid stereotyping or assumptions when discussing the patient’s beliefs?"
+          main: "A patient refuses an important treatment because of cultural or religious beliefs. How do you proceed?",
+          f1: "How would you ensure your communication is culturally safe and the patient feels heard?",
+          f2: "If refusal risks significant harm, how would you explore alternatives while respecting their values?",
+          f3: "What would you do to avoid stereotyping or assumptions about the patient’s beliefs?"
         }
       },
       consent_understanding: {
         title: "Patient lacks understanding during consent",
-        desc: "Consent station assessing ensuring understanding, explaining risks/benefits, voluntariness, and valid informed consent.",
+        desc: "Consent station: assessing understanding, explaining risks/benefits, ensuring informed consent and capacity.",
         prompts: {
           main: "A patient agrees to a procedure but seems not to understand what it involves. How do you proceed?",
           f1: "How do you assess whether consent is valid?",
@@ -505,9 +340,9 @@
       },
       relative_requests_information: {
         title: "Relative requests patient information",
-        desc: "Confidentiality station assessing consent to share information, capacity issues, and managing relatives sensitively.",
+        desc: "Confidentiality station: consent to share information, capacity issues, managing relatives.",
         prompts: {
-          main: "A patient’s relative asks you for details about their condition, but the patient has not consented to sharing information. What do you do?",
+          main: "A patient’s relative asks you for details about their condition, but the patient has not consented to share information. What do you do?",
           f1: "What if the relative insists they have a right to know?",
           f2: "When can confidentiality be breached?",
           f3: "How would you handle this sensitively while maintaining trust?"
@@ -515,67 +350,52 @@
       }
     };
 
-    function escapeHtml(s){
-      return String(s || "")
-        .replaceAll("&","&amp;")
-        .replaceAll("<","&lt;")
-        .replaceAll(">","&gt;")
-        .replaceAll('"',"&quot;")
-        .replaceAll("'","&#039;");
+    function showErr(msg){
+      const e = document.getElementById("err");
+      e.style.display = "block";
+      e.textContent = "Error:\n" + msg;
+    }
+    function clearErr(){
+      const e = document.getElementById("err");
+      e.style.display = "none";
+      e.textContent = "";
+    }
+    function setLoading(on){
+      const btn = document.getElementById("btn");
+      btn.disabled = on;
+      btn.textContent = on ? "Generating…" : "Generate feedback";
     }
 
     function getStationId(){
       const params = new URLSearchParams(window.location.search);
-      return params.get("station") || "";
+      return params.get("station");
     }
 
     const stationId = getStationId();
     const station = STATIONS_META[stationId];
 
-    const titleEl = document.getElementById("stationTitle");
-    const descEl  = document.getElementById("stationDesc");
-
     if(!station){
-      titleEl.textContent = "Station not found";
-      descEl.textContent = "The station link is invalid. Go back and pick a station again.";
-      document.getElementById("btn").disabled = true;
+      document.getElementById("stationTitle").textContent = "Station not found";
+      document.getElementById("stationDesc").textContent = "This station link is invalid. Go back and pick a station again.";
+      showErr("Unknown stationId: " + stationId);
     } else {
-      titleEl.textContent = station.title;
-      descEl.textContent  = station.desc;
+      document.getElementById("stationTitle").textContent = station.title;
+      document.getElementById("stationDesc").textContent = station.desc;
       document.getElementById("qMain").textContent = station.prompts.main;
-      document.getElementById("qF1").textContent   = station.prompts.f1;
-      document.getElementById("qF2").textContent   = station.prompts.f2;
-      document.getElementById("qF3").textContent   = station.prompts.f3;
-      document.title = "MedVault — " + station.title;
+      document.getElementById("qF1").textContent = station.prompts.f1;
+      document.getElementById("qF2").textContent = station.prompts.f2;
+      document.getElementById("qF3").textContent = station.prompts.f3;
     }
 
-    function showErr(msg){
-      const err = document.getElementById("err");
+    document.getElementById("btn").addEventListener("click", generate);
+
+    function renderResults(data){
       const out = document.getElementById("out");
-      out.style.display = "none";
-      err.style.display = "block";
-      err.textContent = msg;
+      out.style.display = "block";
+      out.innerHTML = "<pre style='white-space:pre-wrap'>" + escapeHtml(JSON.stringify(data, null, 2)) + "</pre>";
     }
-
-    function clearErr(){
-      const err = document.getElementById("err");
-      err.style.display = "none";
-      err.textContent = "";
-    }
-
-    function setLoading(isLoading){
-      const btn = document.getElementById("btn");
-      btn.disabled = isLoading;
-      btn.textContent = isLoading ? "Generating..." : "Generate feedback";
-      document.getElementById("hint").textContent = isLoading
-        ? "Working… if it stalls, try shorter answers and retry once."
-        : "Tip: write how you’d speak it in a timed MMI (clear + structured).";
-    }
-
-    function safeScore(n){
-      const x = Number(n);
-      if(!Number.isFinite(x)) return "—";
-      return Math.max(0, Math.min(10, Math.round(x*10)/10));
+    function escapeHtml(s){
+      return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
     }
 
     async function generate(){
@@ -586,26 +406,37 @@
         return;
       }
 
-      const main = (document.getElementById("aMain").value || "").trim();
-      const f1   = (document.getElementById("aF1").value || "").trim();
-      const f2   = (document.getElementById("aF2").value || "").trim();
-      const f3   = (document.getElementById("aF3").value || "").trim();
+      // IMPORTANT: read the EXACT elements by ID (no duplicates allowed)
+      const mainEl = document.getElementById("aMain");
+      const main = (mainEl.value || "").trim();
+
+      // Debug check (uncomment if you want to verify in browser devtools)
+      // console.log("DEBUG main length:", main.length, "value:", main);
 
       if(!main){
-        showErr("Main answer is required.");
+        showErr("Please enter your Main answer above.");
+        mainEl.scrollIntoView({behavior:"smooth", block:"center"});
+        mainEl.focus();
+        mainEl.style.borderColor = "rgba(239,68,68,.7)";
         return;
+      } else {
+        mainEl.style.borderColor = "";
       }
 
       const payload = {
         stationId,
         name: (document.getElementById("studentName").value || "").trim(),
-        answers: { main, f1, f2, f3 }
+        answers: {
+          main,
+          f1: (document.getElementById("aF1").value || "").trim(),
+          f2: (document.getElementById("aF2").value || "").trim(),
+          f3: (document.getElementById("aF3").value || "").trim()
+        }
       };
 
       setLoading(true);
 
       try{
-        // Keep this endpoint exactly like this for Netlify Functions
         const res = await fetch("/.netlify/functions/mark", {
           method: "POST",
           headers: { "Content-Type":"application/json" },
@@ -617,76 +448,23 @@
         let data;
         try{
           data = JSON.parse(text);
-        } catch(e){
-          showErr("Function didn't return JSON.\n\n" + text.slice(0, 1500));
+        } catch {
+          showErr("Function didn't return JSON.\n\n" + text.slice(0, 500));
           return;
         }
 
         if(!res.ok || data.error){
-          showErr(String(data.error || "Request failed"));
+          showErr(data.error || "Request failed");
           return;
         }
 
-        const scores = data.scores || {};
-        const fb = data.feedback || {};
-        const models = data.models || {};
-
-        const out = document.getElementById("out");
-        out.style.display = "block";
-
-        out.innerHTML = `
-          <div class="scores">
-            <div class="scoreBox"><b>Overall</b><span>${safeScore(scores.overall)}</span></div>
-            <div class="scoreBox"><b>Empathy</b><span>${safeScore(scores.empathy)}</span></div>
-            <div class="scoreBox"><b>Communication</b><span>${safeScore(scores.communication)}</span></div>
-            <div class="scoreBox"><b>Ethics</b><span>${safeScore(scores.ethics)}</span></div>
-            <div class="scoreBox"><b>Insight</b><span>${safeScore(scores.insight)}</span></div>
-          </div>
-
-          <div class="sectionH">Feedback</div>
-          <div class="fbGrid">
-            <div class="fbBox"><div class="k">Main</div><div class="v">${escapeHtml(fb.main || "")}</div></div>
-            <div class="fbBox"><div class="k">Follow-up 1</div><div class="v">${escapeHtml(fb.f1 || "")}</div></div>
-            <div class="fbBox"><div class="k">Follow-up 2</div><div class="v">${escapeHtml(fb.f2 || "")}</div></div>
-            <div class="fbBox"><div class="k">Follow-up 3</div><div class="v">${escapeHtml(fb.f3 || "")}</div></div>
-          </div>
-
-          <div class="sectionH">High-yield model answers</div>
-          <div class="modelsGrid">
-            ${renderModel("Main", models.main)}
-            ${renderModel("Follow-up 1", models.f1)}
-            ${renderModel("Follow-up 2", models.f2)}
-            ${renderModel("Follow-up 3", models.f3)}
-          </div>
-        `;
+        renderResults(data);
 
       } catch(e){
-        showErr("Network/server error:\n" + String(e));
-      } finally{
+        showErr("Network/server error");
+      } finally {
         setLoading(false);
       }
-    }
-
-    function renderModel(label, obj){
-      if(!obj) return `
-        <div class="modelBox">
-          <div class="k">${escapeHtml(label)}</div>
-          <div class="v">No model answer returned.</div>
-        </div>
-      `;
-
-      const bullets = obj.bullets || "";
-      const full = obj.full || "";
-
-      return `
-        <div class="modelBox">
-          <div class="k">${escapeHtml(label)}</div>
-          <div class="subk">Bullets</div>
-          <div class="v">${escapeHtml(bullets)}</div>
-          <div class="subk">Full answer</div>
-          <div class="v">${escapeHtml(full)}</div>
-        </div>
-      `;
     }
   </script>
 </body>
