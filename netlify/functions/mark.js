@@ -97,14 +97,18 @@ Close / safety-net:
 
 - FULL answers must be USER-FRIENDLY:
   - DO NOT include headings like “Opening / Approach / Explain / Safety-net” inside the text.
-  - Write as a single clean exam-ready response (max 2 short paragraphs).
+  - Write as a single clean exam-ready response (max 2 paragraphs).
   - Use natural signposting (First… Then… Finally…) but keep it flowing.
   - No label breaks every few sentences.
 
-Length targets (keep within to avoid timeouts):
-- MAIN full: 160–240 words.
-- Each FOLLOW-UP full: 110–170 words.
-- Bullets: concise, not essays.
+Length targets (STRICT — hit these):
+- MAIN full: 260–380 words (more detailed, “rigid” UK MMI standard).
+- Each FOLLOW-UP full: 140–210 words.
+- Bullets: concise but complete (don’t be vague).
+
+Quality requirements:
+- Mention key UK concepts appropriately when relevant (capacity/MCA, best interests, duty of candour, confidentiality, GMC, escalation, documentation, safety-netting).
+- Must be specific and practical (exact actions + escalation steps), not generic.
 
 Return JSON in this exact shape:
 
@@ -122,7 +126,7 @@ Return JSON in this exact shape:
 `.trim();
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 40000); // 40s safety
+    const timeout = setTimeout(() => controller.abort(), 50000); // 50s safety
 
     const resp = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -134,7 +138,8 @@ Return JSON in this exact shape:
         model: "gpt-4.1-mini",
         input,
         text: { format: { type: "json_object" } },
-        max_output_tokens: 1700,
+        // More room for longer MAIN + follow-ups
+        max_output_tokens: 2600,
       }),
       signal: controller.signal,
     });
@@ -184,7 +189,7 @@ Return JSON in this exact shape:
   } catch (err) {
     const msg =
       err?.name === "AbortError"
-        ? "Request timed out (server abort). Output still too large/slow — reduce model answer length further."
+        ? "Request timed out (server abort). Try again, or reduce output slightly if it keeps timing out."
         : err?.message || "Unknown server error";
 
     return {
