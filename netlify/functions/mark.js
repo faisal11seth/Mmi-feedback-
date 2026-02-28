@@ -6,7 +6,19 @@ export async function handler(event) {
     return {
       statusCode: 405,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Method not allowed. Use POST." })
+      body: JSON.stringify({ error: "Method not allowed. Use POST." }),
+    };
+  }
+
+  // Check key
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        error: "Missing OPENAI_API_KEY in Netlify environment variables.",
+      }),
     };
   }
 
@@ -14,96 +26,125 @@ export async function handler(event) {
   let body = {};
   try {
     body = JSON.parse(event.body || "{}");
-  } catch {
+  } catch (e) {
     return {
       statusCode: 400,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Invalid JSON body." })
+      body: JSON.stringify({ error: "Invalid JSON body." }),
     };
   }
 
-  const name = body.name || "";
-  const description = body.description || "";
-  const q1 = body.q1 || "";
-  const q2 = body.q2 || "";
-  const q3 = body.q3 || "";
-  const answer = body.answer || "";
+  // Pull fields (works even if some are missing)
+  const name = (body.name || "").trim();
 
-  if (!answer.trim()) {
+  // Station brief + timings
+  const stationDescription = (body.station_description || body.stationDescription || "").trim();
+  const readingTime = (body.reading_time || body.readingTime || "2 minutes").trim();
+  const responseTime = (body.response_time || body.responseTime || "6 minutes").trim();
+  const followupTime = (body.followup_time || body.followupTime || "2 minutes").trim();
+
+  // Questions
+  const mainQuestion = (body.main_question || body.mainQuestion || "").trim();
+  const followup2 = (body.followup2 || body.follow_up_2 || body.followup_question_2 || "").trim();
+  const followup3 = (body.followup3 || body.follow_up_3 || body.followup_question_3 || "").trim();
+
+  // Candidate answer text (support your old field name too)
+  const candidateAnswer = (body.answer || body.candidate_answer || body.candidateAnswer || "").trim();
+
+  if (!candidateAnswer) {
     return {
       statusCode: 400,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Missing candidate answer." })
+      body: JSON.stringify({ error: "Missing candidate answer text." }),
     };
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "OPENAI_API_KEY is not set on Netlify." })
-    };
-  }
-
+  // Build prompt
   const prompt = `
 You are a UK medical school MMI examiner marking an ETHICS station.
 
-Station timings:
-- 2 min reading, 6 min response, 2 min follow-ups.
+Use UK framing (capacity, consent, autonomy, best interests, safeguarding, confidentiality, escalation, documentation, GMC-style professionalism).
+Be constructive and specific.
 
-Station description:
-${description}
+STATION INFO
+- Reading time: ${readingTime}
+- Response time: ${responseTime}
+- Follow-ups time: ${followupTime}
 
-Main question:
-${q1}
+Station description (what is being assessed):
+${stationDescription || "(not provided)"}
 
-Follow-up Q2:
-${q2}
+Main ethics question / scenario prompt:
+${mainQuestion || "(not provided)"}
 
-Follow-up Q3:
-${q3}
+Follow-up question 2:
+${followup2 || "(not provided)"}
 
-Mark the candidate's answer.
+Follow-up question 3:
+${followup3 || "(not provided)"}
 
-Scoring (0–2 each):
-- empathy
-- communication
-- ethics
-- insight
-
-overall must be /10:
-1) add the 4 domain scores (max 8)
-2) scale to /10: overall = round((sum/8)*10)
-
-Return ONLY valid JSON in exactly this shape (no extra keys, no markdown):
-{
-  "empathy": number,
-  "communication": number,
-  "ethics": number,
-  "insight": number,
-  "overall": number,
-  "comments": "string",
-  "model_main": "string"
-}
-
-Candidate name:
-${name}
+CANDIDATE
+Name: ${name || "(not provided)"}
 
 Candidate answer:
-${answer}
+${candidateAnswer}
+
+Return ONLY JSON matching the required schema.
 `;
+
+  // JSON schema to FORCE valid JSON output
+  const schema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      empathy: { type: "integer", minimum: 0, maximum: 2 },
+      communication: { type: "integer", minimum: 0, maximum: 2 },
+      ethics: { type: "integer", minimum: 0, maximum: 2 },
+      insight: { type: "integer", minimum: 0, maximum: 2 },
+      overall: { type: "integer", minimum: 0, maximum: 10 },
+      strengths: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 6 },
+      improvements: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 8 },
+      comments: { type: "string" },
+      model_main: { type: "string" },
+    },
+    required: [
+      "empathy",
+      "communication",
+      "ethics",
+      "insight",
+      "overall",
+      "strengths",
+      "improvements",
+      "comments",
+      "model_main",
+    ],
+  };
 
   try {
     const res = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-5-mini",
-        input: prompt
-      })
+        model: "gpt-4o-mini",
+        input: [
+          {
+            role: "system",
+            content: "You are a careful examiner. Return only valid JSON that matches the provided schema.",
+          },
+          { role: "user", content: prompt },
+        ],
+        text: {
+          format: {
+            type: "json_schema",
+            name: "mmi_ethics_feedback",
+            strict: true,
+            schema,
+          },
+        },
+      }),
     });
 
     const data = await res.json();
@@ -114,47 +155,69 @@ ${answer}
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           error: "OpenAI API error",
-          details: data
-        })
+          details: data,
+        }),
       };
     }
 
-    // Extract text output from Responses API
-    const text =
-      data?.output?.[0]?.content?.[0]?.text ??
-      data?.output_text ??
-      "";
+    // IMPORTANT:
+    // Responses output may include multiple items (reasoning/tool/etc).
+    // We must extract the "output_text" message safely.
+    let outText = "";
 
-    if (!text) {
+    // Some SDKs provide `output_text`, but raw JSON may not.
+    // So we scan the output array and aggregate any output_text blocks.
+    if (Array.isArray(data.output)) {
+      for (const item of data.output) {
+        if (item && item.type === "message" && Array.isArray(item.content)) {
+          for (const c of item.content) {
+            if (c && (c.type === "output_text" || c.type === "text") && typeof c.text === "string") {
+              outText += c.text;
+            }
+          }
+        }
+      }
+    }
+
+    // Fallback: if OpenAI returns a top-level output_text (sometimes happens)
+    if (!outText && typeof data.output_text === "string") outText = data.output_text;
+
+    if (!outText) {
       return {
         statusCode: 500,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           error: "No text returned from model.",
-          details: data
-        })
+          details: data,
+        }),
       };
     }
 
-    // Ensure we return JSON to the frontend (your index.html does JSON.parse)
-    let parsed;
+    // Parse the JSON text into an object
+    let resultObj;
     try {
-      parsed = JSON.parse(text);
-    } catch {
+      resultObj = JSON.parse(outText);
+    } catch (e) {
       return {
         statusCode: 500,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          error: "Model did not return valid JSON.",
-          raw: text
-        })
+          error: "Model returned non-JSON output (unexpected).",
+          raw: outText,
+          details: data,
+        }),
       };
     }
 
+    // Return JSON to frontend
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(parsed)
+      headers: {
+        "Content-Type": "application/json",
+        // Helpful if your browser ever complains:
+        "Access-Control-Allow-Origin": "*",
+      },
+      body: JSON.stringify(resultObj),
     };
   } catch (err) {
     return {
@@ -162,8 +225,8 @@ ${answer}
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         error: "Server error calling OpenAI.",
-        details: String(err)
-      })
+        message: String(err?.message || err),
+      }),
     };
   }
 }
