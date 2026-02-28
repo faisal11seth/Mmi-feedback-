@@ -2,7 +2,7 @@
 
 exports.handler = async (event) => {
   try {
-    // (Optional) handle preflight if you ever call from a different origin
+    // Optional preflight support
     if (event.httpMethod === "OPTIONS") {
       return {
         statusCode: 204,
@@ -55,11 +55,10 @@ exports.handler = async (event) => {
       };
     }
 
-    // ---- Prompt (this is where your rigid model answer rules live) ----
     const input = `
 You are a strict UK medical school MMI examiner.
 
-Return ONLY valid JSON.
+Return ONLY valid JSON (no markdown, no commentary).
 
 Station ID: ${stationId}
 Station Title: ${stationTitle || ""}
@@ -79,47 +78,36 @@ F2: ${answers.f2 || ""}
 F3: ${answers.f3 || ""}
 
 Rules:
-- If answers are nonsense/too short (e.g., random letters), score low (0–2/10) and explain why.
-- Provide feedback separately for MAIN and each FOLLOW-UP.
+- If any answer is nonsense/too short (e.g., random letters), score low (0–2/10) and explain why.
+- Give feedback separately for MAIN and each FOLLOW-UP (f1, f2, f3).
+- Generate model answers separately for MAIN and each FOLLOW-UP.
 
 MODEL ANSWERS MUST BE RIGID + CONSISTENT FOR EVERY STATION.
 
-For MAIN and for each FOLLOW-UP (f1, f2, f3), output BOTH:
-A) bullets
-B) full answer
+For MAIN and for each FOLLOW-UP:
+A) BULLETS (use exactly these headings):
+Opening line:
+Key steps:
+Safety / escalation:
+Legal / ethical / GMC:
+Close / safety-net:
 
-A) BULLETS FORMAT (use exactly these headings):
-- Opening line (1 sentence)
-- Key steps (6–10 bullets, in order)
-- Safety / escalation (1–3 bullets)
-- Legal / ethical / GMC angle (1–3 bullets)
-- Close / safety-net (1 sentence)
-
-B) FULL ANSWER FORMAT (use exactly these headings and structure):
-
+B) FULL (use exactly these headings):
 Opening (1–2 sentences):
-…
-
-Approach (3–6 sentences):
-…
-
-Explain / Justify (3–6 sentences):
-…
-
-Escalation + Safety-net (2–4 sentences):
-…
-
+Approach (2–4 sentences):
+Explain / Justify (2–4 sentences):
+Escalation + Safety-net (1–3 sentences):
 Close (1 sentence):
-…
 
-Word targets:
-- MAIN full answer: 220–320 words.
-- Each FOLLOW-UP full answer: 140–220 words.
+Word targets (KEEP WITHIN):
+- MAIN full: 140–200 words.
+- Each FOLLOW-UP full: 90–140 words.
+- Bullets should be compact (no essays).
 
 Style:
-- UK MMI tone, structured, concise.
-- Use signposting (“First… Next… Finally…”).
-- Directly address the prompt.
+- UK MMI tone, signposting (“First… Next… Finally…”).
+- Directly answer each prompt.
+- Do NOT add extra sections.
 
 Return JSON in this exact shape:
 
@@ -136,9 +124,8 @@ Return JSON in this exact shape:
 }
 `.trim();
 
-    // ---- Call OpenAI Responses API ----
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000); // 25s safety
+    const timeout = setTimeout(() => controller.abort(), 40000); // 40s safety
 
     const resp = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -149,10 +136,8 @@ Return JSON in this exact shape:
       body: JSON.stringify({
         model: "gpt-4.1-mini",
         input,
-        // Force JSON output (replacement for old response_format)
         text: { format: { type: "json_object" } },
-        // Give enough room for long per-question model answers
-        max_output_tokens: 2800,
+        max_output_tokens: 1600, // key: prevents huge outputs = fewer timeouts
       }),
       signal: controller.signal,
     });
@@ -174,7 +159,7 @@ Return JSON in this exact shape:
 
     const data = JSON.parse(raw);
 
-    // Extract the model output text (Responses API format)
+    // Extract text output (Responses API)
     const outText =
       data?.output?.[0]?.content?.find((c) => c.type === "output_text")?.text || "";
 
@@ -192,12 +177,10 @@ Return JSON in this exact shape:
       };
     }
 
-    // Return to frontend
     return {
       statusCode: 200,
       headers: {
         "Content-Type": "application/json",
-        // If you ever host frontend elsewhere, keep this:
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify(parsed),
@@ -205,7 +188,7 @@ Return JSON in this exact shape:
   } catch (err) {
     const msg =
       err?.name === "AbortError"
-        ? "Request timed out (server abort). Try shorter answers or reduce output."
+        ? "Request timed out (server abort). Output still too large/slow — reduce model answer length further."
         : err?.message || "Unknown server error";
 
     return {
