@@ -3,10 +3,22 @@ export async function handler(event) {
   const name = body.name || "";
   const answer = body.answer || "";
 
-  const prompt = `
-You are a UK medical school MMI examiner.
-
-Mark this candidate answer for an ethics station.
+  const res = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: "gpt-5-mini",
+      input: [
+        {
+          role: "system",
+          content: "You are a UK medical school MMI examiner. Always return valid JSON only."
+        },
+        {
+          role: "user",
+          content: `Mark this candidate answer for an ethics station.
 
 Score each domain 0–2:
 - empathy
@@ -26,38 +38,16 @@ Return JSON:
 }
 
 Candidate answer:
-${answer}
-`;
-
-  const res = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: "gpt-5-mini",
-      input: prompt
+${answer}`
+        }
+      ],
+      response_format: { type: "json_object" }
     })
   });
 
   const data = await res.json();
-  const text = data.output[0].content[0].text;
 
-  let parsed;
-  try {
-    parsed = JSON.parse(text);
-  } catch (e) {
-    parsed = {
-      overall: 0,
-      empathy: 0,
-      communication: 0,
-      ethics: 0,
-      insight: 0,
-      comments: "Model output parsing failed",
-      model_main: text
-    };
-  }
+  const parsed = JSON.parse(data.output[0].content[0].text);
 
   return {
     statusCode: 200,
