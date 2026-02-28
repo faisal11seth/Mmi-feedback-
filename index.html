@@ -17,7 +17,7 @@
       background: #111827;
       padding: 28px;
       border-radius: 12px;
-      width: min(860px, 95vw);
+      width: min(820px, 95vw);
       box-shadow: 0 10px 30px rgba(0,0,0,.25);
     }
     h2 { margin: 0 0 12px 0; }
@@ -34,7 +34,7 @@
       font-size: 14px;
       box-sizing: border-box;
     }
-    textarea { min-height: 90px; resize: vertical; }
+    textarea { min-height: 110px; resize: vertical; }
     .station {
       margin-top: 16px;
       background: #0b1220;
@@ -57,20 +57,9 @@
       padding: 6px 10px;
       border-radius: 999px;
     }
-    .qblock {
-      margin-top: 14px;
-      border-top: 1px solid rgba(148,163,184,.12);
-      padding-top: 14px;
-    }
-    .qtitle {
-      font-size: 13px;
-      color:#e2e8f0;
-      margin: 0 0 8px 0;
-      font-weight: 700;
-    }
-    .readonly {
-      opacity: 0.95;
-    }
+    .qbox { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(148,163,184,.12); }
+    .qtitle { font-weight: bold; margin-bottom: 6px; }
+    .qtext { color:#cbd5e1; font-size: 13px; margin-bottom: 8px; }
     button {
       background: #6366f1;
       color: white;
@@ -80,7 +69,6 @@
       margin-top: 18px;
     }
     button:hover { background: #4f46e5; }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
     .result {
       margin-top: 18px;
       background: #020617;
@@ -91,52 +79,44 @@
     .err { color:#fecaca; }
     .grid {
       display:grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
       margin-top: 10px;
     }
-    .scorebox {
-      background: rgba(148,163,184,.08);
-      border: 1px solid rgba(148,163,184,.18);
-      border-radius: 10px;
-      padding: 10px;
-      text-align:center;
+    .score {
+      background:#0b1220;
+      border:1px solid rgba(148,163,184,.2);
+      border-radius:10px;
+      padding:10px;
+      font-size: 14px;
     }
-    .scorebox b { display:block; font-size: 12px; color:#cbd5e1; margin-bottom: 6px; }
-    .scorebox span { font-size: 18px; font-weight: 800; }
     .section {
-      margin-top: 16px;
-      padding-top: 14px;
+      margin-top: 14px;
+      padding-top: 12px;
       border-top: 1px solid rgba(148,163,184,.12);
     }
-    .section h3 { margin: 0 0 8px 0; font-size: 16px; }
     ul { margin: 8px 0 0 18px; }
-    li { margin: 4px 0; color:#e5e7eb; }
     .mono {
       white-space: pre-wrap;
       word-wrap: break-word;
-      margin: 8px 0 0 0;
+      margin: 0;
       color: #e5e7eb;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size: 13px;
-      line-height: 1.45;
-      background: rgba(148,163,184,.06);
-      border: 1px solid rgba(148,163,184,.14);
-      border-radius: 10px;
-      padding: 10px;
+      font-size: 12.5px;
+      line-height: 1.4;
     }
-    .small { font-size: 12px; color:#94a3b8; margin-top: 6px; }
   </style>
 </head>
 <body>
   <div class="card">
     <h2>MMI Ethics Feedback</h2>
     <div class="muted">
-      Fixed station + fixed questions. Students fill answers for the main question + 3 follow-ups. You get domain scores (/10) + feedback per question + rigid model answers (bullets + full).
+      Fill in your answers for the <b>main question</b> and <b>each follow-up</b>. Then click Generate Feedback.
+      You’ll receive domain scores + separate feedback per question + rigid model answers (bullets + full).
     </div>
 
     <label>Student name</label>
-    <input id="name" placeholder="Student name" />
+    <input id="name" placeholder="Student name"/>
 
     <div class="station">
       <h3>Station brief</h3>
@@ -147,149 +127,135 @@
         <div class="pill">Follow-ups: <b>2 minutes</b></div>
       </div>
 
-      <label>Station description (fixed)</label>
-      <textarea id="description" class="readonly" readonly>
-Ethics station assessing: autonomy vs beneficence/non-maleficence, capacity, consent/refusal of treatment, communication (empathetic, non-judgemental), escalation/senior support, documentation, MDT involvement, and ethically acceptable alternatives. Timings: 2 min reading, 6 min response, 2 min follow-ups.</textarea>
+      <label>Station description</label>
+      <textarea id="description" readonly>Assesses autonomy vs beneficence/non-maleficence, capacity assessment, informed refusal, communication, escalation/senior support, documentation, MDT/family involvement, and ethically acceptable alternatives within UK practice.</textarea>
 
-      <!-- MAIN -->
-      <div class="qblock">
-        <div class="qtitle">Main ethics question (fixed)</div>
-        <textarea id="q1" class="readonly" readonly>A patient refuses a life-saving blood transfusion for religious reasons. Discuss how you would approach this situation.</textarea>
-
+      <div class="qbox">
+        <div class="qtitle">Main ethics question</div>
+        <div class="qtext">A patient refuses a life-saving blood transfusion for religious reasons. Discuss how you would approach this situation.</div>
         <label>Your answer (Main)</label>
-        <textarea id="a1" placeholder="Write what you would say for the main question..."></textarea>
+        <textarea id="aMain" placeholder="Type your main answer here..."></textarea>
       </div>
 
-      <!-- FOLLOW UP 1 -->
-      <div class="qblock">
-        <div class="qtitle">Follow-up 1 (fixed)</div>
-        <textarea id="q2" class="readonly" readonly>What would you do if the patient did not have capacity?</textarea>
-
+      <div class="qbox">
+        <div class="qtitle">Follow-up 1</div>
+        <div class="qtext">What would you do if the patient did not have capacity?</div>
         <label>Your answer (Follow-up 1)</label>
-        <textarea id="a2" placeholder="Write your answer to follow-up 1..."></textarea>
+        <textarea id="a1" placeholder="Type your follow-up 1 answer here..."></textarea>
       </div>
 
-      <!-- FOLLOW UP 2 -->
-      <div class="qblock">
-        <div class="qtitle">Follow-up 2 (fixed)</div>
-        <textarea id="q3" class="readonly" readonly>How would you involve the multidisciplinary team or family?</textarea>
-
+      <div class="qbox">
+        <div class="qtitle">Follow-up 2</div>
+        <div class="qtext">How would you involve the multidisciplinary team or family?</div>
         <label>Your answer (Follow-up 2)</label>
-        <textarea id="a3" placeholder="Write your answer to follow-up 2..."></textarea>
+        <textarea id="a2" placeholder="Type your follow-up 2 answer here..."></textarea>
       </div>
 
-      <!-- FOLLOW UP 3 -->
-      <div class="qblock">
-        <div class="qtitle">Follow-up 3 (fixed)</div>
-        <textarea id="q4" class="readonly" readonly>Can you suggest any ethically acceptable alternatives?</textarea>
-
+      <div class="qbox">
+        <div class="qtitle">Follow-up 3</div>
+        <div class="qtext">Can you suggest any ethically acceptable alternatives?</div>
         <label>Your answer (Follow-up 3)</label>
-        <textarea id="a4" placeholder="Write your answer to follow-up 3..."></textarea>
+        <textarea id="a3" placeholder="Type your follow-up 3 answer here..."></textarea>
       </div>
     </div>
 
-    <button id="btn" onclick="submitAnswer()">Generate Feedback</button>
+    <button onclick="submitAnswer()">Generate Feedback</button>
+
     <div id="output" class="result"></div>
   </div>
 
 <script>
-function escapeHtml(s) {
-  return (s || "")
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-
-function renderQA(title, block) {
-  return `
-    <div class="section">
-      <h3>${escapeHtml(title)}</h3>
-      <div><b>Feedback:</b></div>
-      <div class="mono">${escapeHtml(block.feedback || "")}</div>
-
-      <div class="small"><b>Model (bullet points):</b></div>
-      <ul>
-        ${(block.model_bullets || []).map(x => `<li>${escapeHtml(x)}</li>`).join("")}
-      </ul>
-
-      <div class="small"><b>Model (full answer):</b></div>
-      <div class="mono">${escapeHtml(block.model_full || "")}</div>
-    </div>
-  `;
-}
-
 async function submitAnswer() {
-  const btn = document.getElementById("btn");
-  btn.disabled = true;
-  document.getElementById("output").innerHTML = "Marking…";
-
   const payload = {
     name: document.getElementById("name").value || "",
-    station_description: document.getElementById("description").value || "",
-    main_question: document.getElementById("q1").value || "",
-    followup1_question: document.getElementById("q2").value || "",
-    followup2_question: document.getElementById("q3").value || "",
-    followup3_question: document.getElementById("q4").value || "",
-    main_answer: document.getElementById("a1").value || "",
-    followup1_answer: document.getElementById("a2").value || "",
-    followup2_answer: document.getElementById("a3").value || "",
-    followup3_answer: document.getElementById("a4").value || ""
+    // description is readonly but included anyway
+    description: document.getElementById("description").value || "",
+    aMain: document.getElementById("aMain").value || "",
+    a1: document.getElementById("a1").value || "",
+    a2: document.getElementById("a2").value || "",
+    a3: document.getElementById("a3").value || ""
   };
 
+  const out = document.getElementById("output");
+  out.innerHTML = "Marking...";
+
+  let res, text, data;
   try {
-    const res = await fetch("/.netlify/functions/mark", {
+    res = await fetch("/.netlify/functions/mark", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
-
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      document.getElementById("output").innerHTML =
-        `<div class="err"><b>Error:</b> Function didn’t return JSON.</div><div class="mono">${escapeHtml(text)}</div>`;
-      btn.disabled = false;
-      return;
-    }
-
-    if (!res.ok || data.error) {
-      document.getElementById("output").innerHTML =
-        `<div class="err"><b>Error:</b> ${escapeHtml(data.error || "Request failed")}</div>
-         <div class="mono">${escapeHtml(JSON.stringify(data, null, 2))}</div>`;
-      btn.disabled = false;
-      return;
-    }
-
-    const s = data.scores || {};
-    const out =
-      `<h3>${escapeHtml(payload.name || "Candidate")}</h3>
-
-       <div class="grid">
-         <div class="scorebox"><b>Empathy</b><span>${s.empathy ?? "?"}/10</span></div>
-         <div class="scorebox"><b>Communication</b><span>${s.communication ?? "?"}/10</span></div>
-         <div class="scorebox"><b>Ethics</b><span>${s.ethics ?? "?"}/10</span></div>
-         <div class="scorebox"><b>Insight</b><span>${s.insight ?? "?"}/10</span></div>
-         <div class="scorebox"><b>Overall</b><span>${s.overall ?? "?"}/10</span></div>
-       </div>
-
-       ${renderQA("Main question", data.main)}
-       ${renderQA("Follow-up 1", data.followup1)}
-       ${renderQA("Follow-up 2", data.followup2)}
-       ${renderQA("Follow-up 3", data.followup3)}
-      `;
-
-    document.getElementById("output").innerHTML = out;
-    btn.disabled = false;
-
-  } catch (err) {
-    document.getElementById("output").innerHTML =
-      `<div class="err"><b>Error:</b> ${escapeHtml(String(err))}</div>`;
-    btn.disabled = false;
+    text = await res.text();
+    data = JSON.parse(text);
+  } catch (e) {
+    out.innerHTML = `<div class="err"><b>Error:</b> Could not parse response.</div><pre class="mono">${String(text || e)}</pre>`;
+    return;
   }
+
+  if (!res.ok || data.error) {
+    out.innerHTML = `<div class="err"><b>Error:</b> ${data.error || "Request failed"}</div><pre class="mono">${JSON.stringify(data, null, 2)}</pre>`;
+    return;
+  }
+
+  function bullets(arr) {
+    if (!Array.isArray(arr) || !arr.length) return "<i>None</i>";
+    return "<ul>" + arr.map(x => `<li>${escapeHtml(String(x))}</li>`).join("") + "</ul>";
+  }
+
+  function escapeHtml(str){
+    return str.replace(/[&<>"']/g, m => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[m]));
+  }
+
+  out.innerHTML = `
+    <h3>${escapeHtml(payload.name || "Candidate")}</h3>
+
+    <div class="grid">
+      <div class="score"><b>Overall:</b> ${data.overall}/10</div>
+      <div class="score"><b>Empathy:</b> ${data.empathy}/10</div>
+      <div class="score"><b>Communication:</b> ${data.communication}/10</div>
+      <div class="score"><b>Ethics:</b> ${data.ethics}/10</div>
+      <div class="score"><b>Insight:</b> ${data.insight}/10</div>
+    </div>
+
+    <div class="section">
+      <h4>Feedback — Main question</h4>
+      <div>${escapeHtml(data.feedback_main || "")}</div>
+      <h4 style="margin-top:10px;">Model — Main (bullets)</h4>
+      ${bullets(data.model_main_bullets)}
+      <h4 style="margin-top:10px;">Model — Main (full)</h4>
+      <pre class="mono">${escapeHtml(data.model_main_full || "")}</pre>
+    </div>
+
+    <div class="section">
+      <h4>Feedback — Follow-up 1</h4>
+      <div>${escapeHtml(data.feedback_fu1 || "")}</div>
+      <h4 style="margin-top:10px;">Model — Follow-up 1 (bullets)</h4>
+      ${bullets(data.model_fu1_bullets)}
+      <h4 style="margin-top:10px;">Model — Follow-up 1 (full)</h4>
+      <pre class="mono">${escapeHtml(data.model_fu1_full || "")}</pre>
+    </div>
+
+    <div class="section">
+      <h4>Feedback — Follow-up 2</h4>
+      <div>${escapeHtml(data.feedback_fu2 || "")}</div>
+      <h4 style="margin-top:10px;">Model — Follow-up 2 (bullets)</h4>
+      ${bullets(data.model_fu2_bullets)}
+      <h4 style="margin-top:10px;">Model — Follow-up 2 (full)</h4>
+      <pre class="mono">${escapeHtml(data.model_fu2_full || "")}</pre>
+    </div>
+
+    <div class="section">
+      <h4>Feedback — Follow-up 3</h4>
+      <div>${escapeHtml(data.feedback_fu3 || "")}</div>
+      <h4 style="margin-top:10px;">Model — Follow-up 3 (bullets)</h4>
+      ${bullets(data.model_fu3_bullets)}
+      <h4 style="margin-top:10px;">Model — Follow-up 3 (full)</h4>
+      <pre class="mono">${escapeHtml(data.model_fu3_full || "")}</pre>
+    </div>
+  `;
 }
 </script>
 </body>
