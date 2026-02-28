@@ -1,3 +1,5 @@
+// netlify/functions/mark.js
+
 export async function handler(event) {
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 200, headers: cors(), body: "" };
@@ -18,50 +20,79 @@ export async function handler(event) {
     return json(400, { error: "Invalid JSON body" });
   }
 
-  const stationId = body.stationId;
+  const stationId = String(body.stationId || "").trim();
   const answers = body.answers || {};
   const station = STATIONS[stationId];
 
-  if (!station) {
-    return json(400, { error: "Unknown stationId" });
+  if (!stationId) {
+    return json(400, { error: "Missing stationId" });
   }
 
-  // Minimal validation: require main answer
-  if (!String(answers.main || "").trim()) {
-    return json(400, { error: "Please enter an answer for the Main question." });
+  // This is the error you're seeing: stationId in station.html not matching backend keys.
+  if (!station) {
+    return json(400, {
+      error: "Unknown stationId",
+      received: stationId,
+      expected: Object.keys(STATIONS)
+    });
   }
 
   const prompt = buildPrompt(station, answers);
 
   try {
+    // Hard timeout guard (so it fails cleanly rather than hanging)
+    const controller = new AbortController();
+    const timeoutMs = 25000; // keep < common Netlify limits
+    const t = setTimeout(() => controller.abort(), timeoutMs);
+
     const res = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
+      signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
         model: "gpt-5-mini",
-        input: prompt
+        input: prompt,
+        // Keeping output short reduces slow responses/timeouts
+        max_output_tokens: 550
       })
     });
 
-    const data = await res.json();
-    const text = extractText(data);
+    clearTimeout(t);
 
-    const parsed = safeJson(text);
-    if (!parsed || !parsed.scores || !parsed.feedback) {
-      return json(500, { error: "Invalid model JSON", raw: text, details: data });
+    const data = await res.json().catch(() => null);
+    if (!data) {
+      return json(500, { error: "Invalid OpenAI response (non-JSON)" });
     }
 
-    // Return AI marking + rigid models
+    const text = extractText(data);
+    const parsed = safeJson(text);
+
+    if (!parsed || !parsed.scores || !parsed.feedback) {
+      return json(500, {
+        error: "Invalid model JSON",
+        raw: text
+      });
+    }
+
     return json(200, {
       scores: parsed.scores,
       feedback: parsed.feedback,
       models: station.models
     });
   } catch (e) {
-    return json(500, { error: "Server error", detail: String(e) });
+    const msg = String(e);
+
+    // AbortController timeout
+    if (msg.includes("AbortError")) {
+      return json(504, {
+        error: "Upstream timeout (model took too long). Try again."
+      });
+    }
+
+    return json(500, { error: "Server error", detail: msg });
   }
 }
 
@@ -69,29 +100,23 @@ function buildPrompt(station, answers) {
   return `
 You are a UK medical school MMI examiner.
 
-Station:
+Mark this candidate for the station:
 ${station.title}
 
-Mark the candidate across 4 domains (0–10 each):
+Score 0–10 each:
 - empathy
 - communication
 - ethics
 - insight
-Also give overall 0–10 (holistic, not a simple average).
+Also give overall 0–10.
 
-Provide feedback separately for each question:
+Provide feedback for:
 - main
 - f1
 - f2
 - f3
 
-Feedback style:
-- 2–4 sentences per question.
-- Include 1–2 strengths + 1–2 improvements.
-- UK-appropriate: capacity/MCA where relevant, consent, confidentiality, escalation, documentation, MDT, duty of candour, safety-netting.
-- If an answer is blank: "No answer provided — expected a structured approach covering …"
-
-Return STRICT JSON ONLY (no markdown, no backticks, no extra text) in this exact shape:
+Return ONLY JSON:
 
 {
   "scores": {
@@ -111,49 +136,52 @@ Return STRICT JSON ONLY (no markdown, no backticks, no extra text) in this exact
 
 Main question:
 ${station.prompts.main}
-Candidate answer (main):
+Answer:
 ${answers.main || ""}
 
 Follow-up 1:
 ${station.prompts.f1}
-Candidate answer (f1):
+Answer:
 ${answers.f1 || ""}
 
 Follow-up 2:
 ${station.prompts.f2}
-Candidate answer (f2):
+Answer:
 ${answers.f2 || ""}
 
 Follow-up 3:
 ${station.prompts.f3}
-Candidate answer (f3):
+Answer:
 ${answers.f3 || ""}
 `.trim();
 }
 
-// Robust extraction for Responses API
 function extractText(r) {
   try {
     for (const o of r.output || []) {
-      if (o.type === "message" && Array.isArray(o.content)) {
+      if (o.content) {
         for (const c of o.content) {
-          if (typeof c.text === "string" && c.text.trim()) return c.text;
-          if (c.type === "output_text" && typeof c.text === "string" && c.text.trim()) return c.text;
-          if (c.type === "text" && typeof c.text === "string" && c.text.trim()) return c.text;
+          if (c.type === "output_text" && c.text) return c.text;
+          if (c.text) return c.text;
         }
       }
     }
-    if (typeof r.output_text === "string" && r.output_text.trim()) return r.output_text;
   } catch {}
   return "";
 }
 
 function safeJson(text) {
-  try { return JSON.parse(text); } catch {}
+  try {
+    return JSON.parse(text);
+  } catch {}
+
+  // If model wraps JSON with other text, salvage it
   const s = text.indexOf("{");
   const e = text.lastIndexOf("}");
   if (s >= 0 && e > s) {
-    try { return JSON.parse(text.slice(s, e + 1)); } catch {}
+    try {
+      return JSON.parse(text.slice(s, e + 1));
+    } catch {}
   }
   return null;
 }
@@ -174,15 +202,24 @@ function json(code, obj) {
   };
 }
 
-/* ============================================================
-   STATIONS + RIGID MODEL ANSWERS (bullets + long-form)
-   IDs MUST match index.html station IDs.
-   ============================================================ */
-
+/**
+ * IMPORTANT:
+ * These keys MUST match your station.html STATIONS_META keys and index.html openStation('...') ids.
+ * Based on your screenshots, you currently have at least:
+ * - blood_transfusion_refusal
+ * - confidentiality_breach
+ * - colleague_error
+ * - dnar_conflict
+ * - capacity_refusal
+ * - breaking_bad_news
+ * - team_conflict
+ * - cultural_refusal
+ * - consent_understanding
+ * - relative_requests_information
+ */
 const STATIONS = {
-  // 1) BLOOD TRANSFUSION REFUSAL
   blood_transfusion_refusal: {
-    title: "Ethics: Refusal of life-saving blood transfusion (religious reasons)",
+    title: "Refusal of life-saving blood transfusion",
     prompts: {
       main: "A patient refuses a life-saving blood transfusion for religious reasons. Discuss how you would approach this situation.",
       f1: "What would you do if the patient did not have capacity?",
@@ -192,534 +229,351 @@ const STATIONS = {
     models: {
       main: {
         bullets:
-`• Ensure immediate safety: assess urgency, stabilise, call senior early.
-• Capacity first (MCA): understand/retain/weigh/communicate; check voluntariness and no coercion.
-• Explain clearly: why transfusion is recommended, risks/benefits, likely outcomes of refusal; use teach-back.
-• Explore beliefs respectfully: what products/procedures are acceptable (often individual-specific); offer chaplain/faith liaison if wanted.
-• If capacitous refusal persists: respect autonomy even if life-threatening; continue supportive care; revisit if circumstances change.
-• Escalate + document: capacity assessment, info given, decision, who was involved; plan + safety-netting.`,
+          "• Stabilise + assess urgency\n• Assess capacity (MCA)\n• Explore reasons/beliefs respectfully\n• Explain risks/benefits + check understanding\n• If capacitous, respect refusal\n• Escalate to senior + document clearly",
         full:
-`I would approach the patient calmly and respectfully, acknowledging that their decision may be based on deeply held beliefs. First, I would assess how time-critical the situation is and ensure the patient is stabilised, while involving a senior clinician early because this is potentially life-threatening and ethically complex.
-
-Next, I would assess capacity in line with the Mental Capacity Act: confirming the patient can understand the relevant information, retain it, weigh it up and communicate a decision. I would also check that the decision is voluntary and not the result of coercion or misunderstanding. I would then explain the situation in clear, non-technical language: why a transfusion is recommended, the likely benefits, and the risks and consequences of refusing, and I would check understanding using teach-back.
-
-I would explore the patient’s beliefs with sensitivity and ask what is or is not acceptable to them, because acceptability can vary between individuals and between different blood products or procedures. If the patient would like, I would offer support such as chaplaincy or a faith liaison, and I would ensure the discussion remains patient-centred rather than adversarial.
-
-If the patient has capacity and continues to refuse, I must respect their autonomous decision even if it may lead to serious harm or death. I would not transfuse against their wishes, but I would continue compassionate supportive care, consider clinically appropriate alternatives, and keep communication open, particularly if the clinical situation changes.
-
-Throughout, I would escalate appropriately (consultant/anaesthetics/haematology as relevant) and document clearly: the capacity assessment, information provided, the patient’s decision and rationale, any agreed alternatives, and the plan for ongoing review and safety-netting.`
+          "I would treat this as an urgent, patient-centred discussion. First I would stabilise the patient and assess time-critical risk. I’d then assess capacity under the Mental Capacity Act: can they understand, retain, weigh the information and communicate a decision? I would explore the patient’s beliefs and concerns respectfully, ensuring privacy and appropriate support (e.g., liaison, chaplaincy if wanted). I’d explain the benefits of transfusion, the likely consequences of refusal, and any alternatives, checking understanding using teach-back. If the patient has capacity and continues to refuse, I would respect their autonomous decision, escalate to a senior clinician, and document the capacity assessment and discussion carefully while continuing supportive care."
       },
       f1: {
         bullets:
-`• Confirm lack of capacity; treat reversible causes; reassess as appropriate.
-• Check for valid/applicable ADRT refusing blood; check Health & Welfare LPA.
-• If no ADRT: best-interests decision using MCA checklist; least restrictive option; involve seniors.
-• If no family/friends: involve IMCA; if dispute/complexity and time allows, seek ethics/legal advice (court if needed).
-• Document capacity, checks, best-interests reasoning and actions.`,
+          "• Confirm lack of capacity + why\n• Check ADRT / LPA / previously expressed wishes\n• Best-interests decision (least restrictive)\n• In emergency, treat to preserve life while seeking senior advice\n• Consider legal/ethics support if complex\n• Document rationale",
         full:
-`If the patient lacked capacity, I would first confirm this with a structured MCA assessment and address reversible causes such as hypoxia, sepsis, pain, delirium or intoxication, reassessing capacity if the situation changes.
-
-I would urgently check for a valid and applicable Advance Decision to Refuse Treatment (ADRT) relating to blood, and whether there is a Health & Welfare Lasting Power of Attorney. A valid, applicable ADRT must be followed.
-
-If there is no applicable ADRT, I would make a best-interests decision using the statutory checklist, taking into account the patient’s known wishes, values and beliefs, and choosing the least restrictive option. I would involve senior clinicians early, and if there is no appropriate person to consult I would involve an IMCA. If there is disagreement or complexity (and the situation is not an immediate emergency), I would seek ethics/legal advice and consider court input. I would document the capacity assessment, checks performed, and best-interests rationale clearly.`
+          "If the patient lacked capacity, I would confirm and document this, then check for an ADRT, an LPA, or any clearly recorded prior wishes. If none exist, I would make a best-interests decision under the MCA, involving seniors and the MDT. In a true emergency, I would act to preserve life while seeking urgent senior input, and I’d consider legal/ethics support if there is disagreement or complexity, documenting the decision-making throughout."
       },
       f2: {
         bullets:
-`• Involve seniors early + nursing team for monitoring and consistent messaging.
-• Engage specialists as needed: anaesthetics/ICU, haematology, surgery, transfusion team.
-• Offer chaplaincy/faith liaison and interpreter if helpful (with patient consent).
-• Family: involve with patient consent if capacitous; if no capacity, family helps inform best-interests (can’t “consent” for capacitous patient).
-• Clarify plan/roles; document who was involved and decisions made.`,
+          "• Inform senior/consultant early\n• Involve haematology/anaesthetics as relevant\n• Nursing team for monitoring/support\n• Family only with patient consent (if capacitous)\n• Use interpreter/chaplaincy if helpful\n• Clear shared plan + documentation",
         full:
-`I would involve the multidisciplinary team early to ensure safe, coordinated care. This includes senior clinicians for oversight, nursing staff for close monitoring and communication, and relevant specialists such as anaesthetics/ICU and haematology (and surgery if relevant) to plan haemodynamic support and blood conservation strategies.
-
-With the patient’s agreement, I would offer chaplaincy or a faith liaison and use an interpreter if language is a barrier. If the patient has capacity, family involvement should be with the patient’s consent—family can support the patient and help clarify values, but they cannot override a capacitous refusal. If the patient lacks capacity, family and carers can provide information about the patient’s wishes and beliefs to inform a best-interests decision, and an IMCA should be involved if there is no one appropriate.
-
-I would ensure roles are clear, the plan is communicated consistently to avoid mixed messages, and I would document who was involved and the outcomes of discussions.`
+          "I would involve the senior team early and bring in relevant specialists such as haematology/anaesthetics if needed. The nursing team are crucial for monitoring and ongoing communication. If the patient has capacity, I would involve family only with their consent; otherwise I would involve appropriate decision-makers within MCA frameworks. If language or faith support would help, I’d offer an interpreter or chaplaincy. I’d ensure everyone understands the plan and that it’s documented clearly."
       },
       f3: {
         bullets:
-`• Optimise Hb / treat cause: iron, B12/folate; consider EPO where appropriate.
-• Reduce blood loss: meticulous haemostasis, minimise phlebotomy (paediatric tubes), review anticoagulants.
-• Haemostatic strategies: tranexamic acid; surgical/anaesthetic blood-conservation techniques.
-• Consider cell salvage/ANH if acceptable to the patient.
-• Support oxygen delivery: oxygen, fluids, vasopressors/ICU as needed.
-• Be honest about limits; document what is acceptable.`,
+          "• Optimise Hb (iron/folate/B12/EPO where appropriate)\n• Minimise blood loss + meticulous haemostasis\n• Tranexamic acid if indicated\n• Cell salvage / fractionated products if acceptable to patient\n• Volume resuscitation + supportive care\n• Be honest about limits of alternatives",
         full:
-`I would discuss blood-sparing alternatives with the patient and relevant specialists, noting that acceptability varies by individual belief. Options include optimising haemoglobin and treating reversible causes (iron replacement, correcting B12/folate deficiency, and considering erythropoietin where clinically appropriate), and minimising iatrogenic blood loss by reducing phlebotomy and using smaller-volume tubes.
-
-Depending on the context, haemostatic strategies such as tranexamic acid and meticulous haemostasis are important, and surgical/anaesthetic blood conservation techniques may reduce bleeding. Where relevant, I would explore procedures like intra-operative cell salvage or acute normovolaemic haemodilution if these are acceptable to the patient.
-
-I would also optimise oxygen delivery and haemodynamic support with careful fluid management, oxygen therapy, and escalation to critical care if needed. I would be transparent about the limits—alternatives may reduce risk but may not fully replace transfusion—and document clearly what products or procedures the patient accepts or refuses.`
+          "Alternatives depend on the clinical context and the patient’s beliefs. I would consider optimisation of haemoglobin (e.g., iron and treating reversible causes), minimising blood loss and using haemostatic strategies such as tranexamic acid where appropriate. Some patients may accept cell salvage or certain blood fractions; I would explore this without assumptions. I’d provide supportive care and be clear if alternatives are insufficient to achieve the same life-saving benefit as transfusion."
       }
     }
   },
 
-  // 2) CONFIDENTIALITY BREACH
   confidentiality_breach: {
-    title: "Professionalism: Confidentiality breach (student discussing patient loudly)",
+    title: "Confidentiality breach in a public area",
     prompts: {
-      main: "You see a fellow student discussing identifiable patient information loudly in a corridor. What would you do?",
-      f1: "What if they become defensive?",
-      f2: "What if others overheard?",
-      f3: "Why is confidentiality important?"
+      main: "You overhear a medical student discussing an identifiable patient loudly in a corridor. What would you do?",
+      f1: "How would you handle it if they become defensive or dismissive?",
+      f2: "What steps would you take if you believe members of the public/other patients overheard?",
+      f3: "What key points would you include in a reflection about this incident?"
     },
     models: {
       main: {
         bullets:
-`• Act immediately to reduce harm: interrupt politely and move conversation to a private space.
-• Speak 1:1, non-judgemental: explain confidentiality duty (GMC), impact on trust and patient dignity.
-• Clarify what should happen: discuss cases only in appropriate settings; anonymise details; “need-to-know”.
-• Encourage reflection and learning; offer support (they may be stressed/unaware).
-• Escalate if serious/repeated: supervisor/clinical lead per local policy.
-• Document/incident report if required; consider patient disclosure if significant breach.`,
+          "• Stop the breach promptly (politely interrupt)\n• Move to private space\n• Explain why it matters (trust/GDPR/professionalism)\n• Encourage learning + safer behaviour\n• Escalate to supervisor if serious/repeated\n• Document/report via local policy if needed",
         full:
-`My priority is to protect the patient’s confidentiality and minimise harm. I would intervene promptly but respectfully—politely stopping the conversation and suggesting we move somewhere private. That immediately reduces the risk of further disclosure.
-
-I would then speak to the student one-to-one in a calm, non-judgemental way. I would explain that discussing identifiable patient information in public spaces breaches confidentiality and professionalism, undermines patient dignity, and can damage trust in the healthcare team. I would reinforce that case discussions should happen in appropriate settings and only with staff who need the information, and that details should be anonymised wherever possible.
-
-I would encourage the student to reflect on what happened and why it matters, and I would offer support—sometimes these lapses occur due to stress or lack of awareness. If the breach was serious, repeated, or the student was unwilling to take it seriously, I would escalate to a supervisor or the clinical team according to local policy. If required, I would complete an incident report and ensure appropriate steps are taken to address any potential patient harm, including considering whether the patient needs to be informed depending on local governance guidance.`
+          "I would act promptly to protect patient confidentiality. I’d politely interrupt and suggest we continue the conversation somewhere private, then explain that identifiable information must not be discussed in public areas. I would be respectful and educational rather than accusatory, linking it to patient trust, professional standards, and legal duties. Depending on severity (how identifiable, who overheard, repeated behaviour), I would escalate to a supervising clinician/education lead and follow local reporting policy."
       },
       f1: {
         bullets:
-`• Stay calm; avoid arguing; focus on patient safety and professional standards.
-• Use “I” language: “I’m concerned this could be identifiable…”
-• Explain consequences: harm to trust, governance implications.
-• If they refuse to engage or it’s repeated: escalate to supervisor.`,
+          "• Stay calm, non-confrontational\n• Focus on patient impact, not blame\n• Use ‘I’ statements + standards\n• Offer support/resources\n• If persists, escalate appropriately",
         full:
-`If they became defensive, I would remain calm and avoid confrontation. I’d use “I” language—such as “I’m concerned this might be identifiable in a public area”—to keep the discussion constructive. I would refocus on patient safety and professional standards rather than blame, and briefly outline why it matters, including the impact on trust and governance. If they continued to dismiss it or it was a repeated issue, I would escalate to an appropriate supervisor.`
+          "If they became defensive, I’d remain calm and keep the focus on patient safety and trust rather than blame. I’d restate the standard expected and why it matters, and offer support on how to handle discussions safely. If they continued to dismiss the issue or repeated the behaviour, I would escalate to a senior/education lead."
       },
       f2: {
         bullets:
-`• Treat as higher-risk: identifiable info may have been disclosed.
-• Inform senior/supervisor promptly; follow local incident reporting.
-• Consider mitigation: clarify what was said, who might have heard, whether patient needs informing.
-• Support student + learning plan.`,
+          "• Treat as higher severity\n• Inform senior promptly\n• Follow incident reporting/local policy\n• Consider duty of candour steps if identifiable harm\n• Support patient if concerns raised",
         full:
-`If others may have overheard, I would treat it as a higher-risk breach and inform a supervisor promptly, following local incident reporting procedures. I would clarify what was said, whether it was identifiable, and who might have heard, so the team can mitigate harm appropriately. Depending on the severity and policy, the patient may need to be informed. I would also support the student with reflection and learning to prevent recurrence.`
+          "If I believed others overheard, I’d treat it as more serious. I would inform a senior promptly and follow local policy for reporting confidentiality incidents. If there’s a realistic risk of patient identification, I would seek senior guidance on next steps, including whether any duty of candour actions are required."
       },
       f3: {
         bullets:
-`• Protects dignity and privacy; legal/professional duty.
-• Maintains trust so patients disclose sensitive information.
-• Enables safe, effective care and safeguards reputation of the profession.`,
+          "• What happened + why it was a breach\n• Impact on patient trust/safety\n• My actions + what I’d do differently\n• Learning points + prevention (private spaces, de-identify)\n• Professional standards (GMC) + confidentiality law basics",
         full:
-`Confidentiality protects patient dignity and privacy and is a legal and professional obligation. It also underpins trust—patients are more likely to share sensitive information if they believe it will be handled appropriately, which is essential for safe care. Breaches can harm patients and damage confidence in the healthcare system and profession.`
+          "In reflection I’d describe what happened, why it constituted a confidentiality breach, and the potential impact on patient trust and care. I’d explain what I did to stop and address it, what I would do next time, and concrete prevention strategies (de-identification, private settings, awareness of surroundings). I’d link learning to professional standards and confidentiality principles."
       }
     }
   },
 
-  // 3) COLLEAGUE ERROR
   colleague_error: {
-    title: "Patient safety: Prescribing error noticed",
+    title: "Medication prescribing error noticed",
     prompts: {
-      main: "You notice a junior doctor prescribing the wrong medication dose. What would you do?",
-      f1: "What if they dismiss you?",
-      f2: "What if patient received it?",
-      f3: "Why speak up?"
+      main: "You notice a junior doctor has prescribed a potentially harmful dose of a medication. Talk through exactly what you would do.",
+      f1: "What would you do if the doctor insists the prescription is correct and refuses to change it?",
+      f2: "What would you do if you realise the patient has already received the dose?",
+      f3: "How would you communicate this to the patient (or family) in line with duty of candour?"
     },
     models: {
       main: {
         bullets:
-`• Patient safety first: act promptly before harm occurs.
-• Verify facts: check chart, indication, allergies, renal function, guidelines; avoid assumptions.
-• Speak to prescriber privately and respectfully; use structured language (e.g., SBAR).
-• Agree immediate fix: amend prescription, inform nursing/pharmacy as needed.
-• Escalate to senior if unresolved/urgent; document appropriately and complete incident report if required.
-• Support learning: debrief, reflect, encourage a just culture.`,
+          "• Patient safety first\n• Check facts (drug, dose, patient factors)\n• Speak to prescriber privately + respectfully\n• Escalate if unresolved (senior/pharmacist)\n• Correct prescription + document\n• Support colleague + learning culture",
         full:
-`My priority is patient safety, so I would act promptly. First, I would verify the concern by checking the prescription details—dose, route, frequency—alongside the patient’s indication, allergies, weight/renal function and relevant guidelines. That ensures I’m not misinterpreting the situation.
-
-If I still believed the dose was wrong, I would speak to the prescriber privately and respectfully, using a structured approach such as SBAR: describing the situation, my concern, and suggesting a safer alternative. The aim is to correct the error collaboratively rather than blame. I would ensure the prescription is amended quickly and that the relevant team members—such as nursing staff and pharmacy—are aware so the patient is not given the wrong dose.
-
-If the prescriber was not receptive, if there was immediate risk, or I could not resolve it promptly, I would escalate to a senior clinician. Depending on local policy and the seriousness, I would also ensure appropriate documentation and consider an incident report so the system can learn. Finally, I would support the colleague—errors happen—and encourage reflection and learning in a just culture to reduce recurrence.`
+          "I would prioritise patient safety. I’d quickly check the prescription details and relevant patient factors (indication, renal function, weight, allergies, interactions). I would then speak to the prescriber privately and respectfully, explaining my concern and the evidence. If it appears incorrect, I would ensure the prescription is amended and the team is aware. If there is any resistance or uncertainty, I would escalate immediately to a senior clinician and/or pharmacist. I would document the actions taken and support the colleague in a non-blaming learning culture."
       },
       f1: {
         bullets:
-`• Stay calm; restate objective safety concern and evidence.
-• Escalate if unresolved: registrar/consultant, pharmacist, nurse in charge.
-• If imminent harm: act immediately via senior/nursing to hold medication.`,
+          "• Re-state risk clearly\n• Offer to check guideline together / involve pharmacist\n• Escalate immediately to senior\n• Do not allow unsafe administration",
         full:
-`If they dismissed me, I would remain calm and restate the concern clearly, focusing on objective safety evidence rather than opinion. If it still wasn’t resolved, I would escalate promptly to an appropriate senior and involve pharmacy or the nurse in charge, especially if the medication was due imminently. If there was a risk of immediate harm, I would ensure the drug is withheld until reviewed by a senior.`
+          "If they insisted it was correct, I’d suggest checking guidance together and involve a pharmacist. If still unresolved, I’d escalate to a senior clinician immediately. Patient safety overrides hierarchy, and I would not allow an unsafe dose to be administered."
       },
       f2: {
         bullets:
-`• Assess patient immediately; ABCDE; check obs and symptoms.
-• Inform senior urgently; initiate management (antidote/supportive care) per guidance.
-• Document clearly; incident report.
-• Duty of candour: honest explanation/apology, next steps, follow-up plan (with senior support).`,
+          "• Assess patient urgently + observations\n• Inform senior + pharmacist\n• Treat/manage adverse effects\n• Monitor + investigations\n• Document + incident report",
         full:
-`If the patient had already received the dose, I would assess them immediately using an ABCDE approach and check observations and symptoms. I would inform a senior urgently and start appropriate management in line with guidance, which may include monitoring, supportive care or an antidote depending on the drug. I would document what happened, complete an incident report, and follow duty of candour: ensuring the patient is informed honestly, with an apology and clear explanation of next steps and follow-up, supported by a senior.`
+          "If the dose had already been given, I would assess the patient urgently, inform a senior clinician and pharmacist, and take steps to mitigate harm (appropriate monitoring, investigations and treatment). I would document the event and follow local incident reporting processes."
       },
       f3: {
         bullets:
-`• Prevents avoidable harm; professional duty to raise concerns.
-• Encourages a safety culture and system learning.
-• Protects patients and supports colleagues through early correction.`,
+          "• Be honest + timely\n• Apologise (not blame-shifting)\n• Explain what happened + impact\n• Explain what we’re doing now\n• Offer questions/support + document",
         full:
-`Speaking up prevents avoidable harm and is a core professional duty—patient safety comes before hierarchy. It also supports a culture where teams learn from errors and improve systems, reducing repeat mistakes. Early challenge can protect the patient and support colleagues by correcting issues before they escalate.`
+          "In line with duty of candour, I would ensure a senior clinician leads a clear, honest and timely discussion. We would explain what happened, apologise, outline potential effects, and describe what we are doing to treat and monitor the patient. We would invite questions, provide support, and document the conversation."
       }
     }
   },
 
-  // 4) DNAR CONFLICT
   dnar_conflict: {
-    title: "Ethics: Family insists on CPR despite DNAR decision",
+    title: "DNACPR disagreement with family",
     prompts: {
-      main: "Family insists on CPR despite DNAR decision. Approach?",
-      f1: "If angry?",
-      f2: "Who decides DNAR?",
-      f3: "Support family?"
+      main: "A patient has a DNACPR decision documented. The family insists that 'everything must be done' and demand CPR. How would you approach this conversation?",
+      f1: "How would you respond if the family becomes angry and accusatory?",
+      f2: "Who is involved in DNACPR decisions and what principles guide them?",
+      f3: "How would you support the family while maintaining a patient-centred plan?"
     },
     models: {
       main: {
         bullets:
-`• Start with empathy: acknowledge emotion, grief, fear; ensure privacy.
-• Clarify DNAR scope: applies to CPR only; other active treatments continue unless otherwise agreed.
-• Explain rationale: CPR likely not beneficial / burdens outweigh benefits; focus on best interests and realistic outcomes.
-• Explore understanding and values; check if patient expressed wishes/advance care plan.
-• Involve senior clinician; consider palliative care; aim for shared understanding.
-• De-escalate, document discussion; offer ongoing updates and support.`,
+          "• Acknowledge distress + create private space\n• Clarify DNACPR scope (CPR only)\n• Explain reasoning (benefit vs burden / futility)\n• Explore values + patient wishes\n• Involve senior/MDT early\n• Document + safety-net",
         full:
-`I would begin by acknowledging the family’s distress and ensuring the conversation happens in a private, calm setting. I would use empathic language, recognising that insistence on CPR often reflects fear and a desire to “do everything”.
-
-I would clarify what a DNAR decision means: it relates specifically to CPR in the event of cardiac or respiratory arrest, and it does not mean we stop other appropriate treatment or good care. I would then explain the clinical reasoning in an understandable way: that CPR may be very unlikely to succeed in this context, and even if it does, it may lead to significant suffering or poor outcomes. The goal is to act in the patient’s best interests and avoid interventions that are non-beneficial or harmful.
-
-I would explore the family’s understanding and what the patient would have wanted—whether there is an advance care plan, previously expressed wishes, or values that should guide decisions. I would involve the senior clinician responsible for the DNAR decision early, and consider involving palliative care for symptom control and support. Throughout, I would aim for shared understanding, keep communication open, and document the discussion clearly.`
+          "I would speak in a private space and acknowledge how distressing this is for the family. I’d clarify that DNACPR relates to CPR specifically and does not mean stopping all treatment. I would explain that CPR decisions are based on clinical judgement about likely benefit versus harm, and whether CPR would be effective. I’d explore the patient’s wishes, values and any prior conversations, and involve a senior clinician and the MDT early. I’d ensure the plan is communicated clearly and documented."
       },
       f1: {
         bullets:
-`• Stay calm and respectful; validate emotions.
-• Use de-escalation: slow pace, clear language, boundaries.
-• Offer senior review; avoid arguing.
-• If safety concern: involve security/staff support as needed.`,
+          "• Stay calm + don’t match emotion\n• Validate feelings\n• Re-focus on patient welfare\n• Offer senior support / break\n• Keep boundaries if abusive",
         full:
-`If the family were angry, I would remain calm, listen, and validate their emotions without becoming defensive. I would use de-escalation—slowing the conversation, using clear language, and setting respectful boundaries. I would offer a senior review and ensure the family feels heard, while avoiding arguments. If there were any safety concerns, I would involve staff support appropriately.`
+          "If they were angry, I’d remain calm and validate their emotions without becoming defensive. I’d refocus on the patient’s welfare and offer to bring in a senior clinician. If behaviour became abusive, I would set respectful boundaries while ensuring support continues."
       },
       f2: {
         bullets:
-`• DNAR is a clinical decision by senior clinician, informed by patient wishes and best interests.
-• Patient with capacity decides about CPR preferences; clinicians decide if CPR is clinically appropriate.
-• Family contributes information but does not “consent” to DNAR for a capacitous patient.`,
+          "• Senior clinician leads; MDT input\n• Consider patient capacity + wishes\n• Best interests if no capacity\n• National/local policy + documentation\n• Review if situation changes",
         full:
-`A DNAR decision is made by a senior clinician based on clinical judgement about whether CPR would be appropriate, informed by the patient’s wishes and best interests. If the patient has capacity, their preferences should be discussed and respected, but clinicians are not obliged to provide treatment that is clinically inappropriate. Families can provide valuable information about the patient’s values and wishes, but they do not give consent for or against DNAR on behalf of a capacitous patient.`
+          "DNACPR decisions are typically led by a senior clinician with MDT input, guided by likelihood of CPR success, burdens/harms, and the patient’s wishes. If the patient lacks capacity, decisions are made in best interests. The decision should be documented, communicated, and reviewed if circumstances change."
       },
       f3: {
         bullets:
-`• Provide clear information, consistent messaging, and time for questions.
-• Offer emotional support: liaison nurse, chaplaincy, palliative care, bereavement support.
-• Agree communication plan and updates; signpost practical support.`,
+          "• Offer time + clear explanations\n• Signpost support (nurses, palliative care, chaplaincy)\n• Involve family appropriately\n• Agree what ‘everything’ means (comfort, symptom control)\n• Maintain compassionate communication",
         full:
-`Supporting the family involves clear, compassionate communication and time for questions. I would ensure consistent messaging from the team, offer emotional support and signposting—such as palliative care input, chaplaincy, and bereavement services where relevant—and agree a plan for regular updates. Practical support and reassurance that comfort and dignity remain priorities can also help.`
+          "I would support the family through clear explanations, time for questions, and signposting to support such as nursing staff, palliative care and chaplaincy if appropriate. I’d explore what they mean by ‘everything’ and emphasise that excellent care continues (comfort, symptom control, dignity) even if CPR is not appropriate."
       }
     }
   },
 
-  // 5) CAPACITY REFUSAL
   capacity_refusal: {
-    title: "Capacity: Elderly patient refuses needed surgery",
+    title: "Refusal of recommended treatment",
     prompts: {
-      main: "Elderly patient refuses needed surgery. Approach?",
-      f1: "Assess capacity?",
-      f2: "Fluctuating capacity?",
-      f3: "Treat without consent?"
+      main: "An elderly patient refuses a recommended operation that clinicians believe is needed. How would you approach this?",
+      f1: "How would you assess capacity in this context?",
+      f2: "What if capacity is fluctuating?",
+      f3: "When can treatment proceed without consent?"
     },
     models: {
       main: {
         bullets:
-`• Start with empathy and rapport; check pain/anxiety; ensure privacy.
-• Explore reasons for refusal (fear, misunderstanding, cultural beliefs, past experiences).
-• Give balanced information: benefits/risks of surgery and of not having it; alternatives; answer questions.
-• Assess capacity (MCA): understand/retain/weigh/communicate; support decision-making (interpreter, visuals, family support with consent).
-• If capacitous refusal: respect autonomy; safety-net; document and involve seniors.
-• If no capacity: best-interests pathway; consider ADRT/LPA; involve MDT.`,
+          "• Explore reasons + concerns\n• Explain risks/benefits/alternatives\n• Assess capacity (MCA)\n• Support shared decision-making\n• Respect capacitous refusal\n• Document + safety-net",
         full:
-`I would start by building rapport and acknowledging that refusing surgery can come from fear, previous experiences, or misunderstanding. I would ensure the setting is private, manage immediate discomfort such as pain or nausea, and ask open questions to explore the patient’s concerns and goals.
-
-I would then provide clear, balanced information about the condition, what the surgery aims to achieve, the key risks and benefits, and importantly the likely consequences of not proceeding. I would discuss reasonable alternatives where available and check understanding with teach-back, inviting questions. I would also offer supportive measures to help decision-making, such as an interpreter, written information, or involving family with the patient’s consent.
-
-I would assess capacity under the Mental Capacity Act by confirming the patient can understand, retain, weigh the information and communicate a decision. If the patient has capacity and still refuses, I must respect their autonomy, even if I disagree. I would document the discussion thoroughly, involve seniors, and safety-net by outlining warning signs and arranging follow-up. If the patient lacks capacity, I would follow a best-interests process and involve the MDT appropriately.`
+          "I would explore the patient’s reasons for refusal and address concerns such as fear, misunderstanding, pain, or social factors. I’d explain the risks, benefits and alternatives in clear language and check understanding. I’d assess capacity under the MCA. If the patient has capacity and continues to refuse, I would respect their decision, document the discussion, involve seniors as needed, and provide safety-net advice and ongoing support."
       },
       f1: {
         bullets:
-`• MCA test: understand, retain, weigh, communicate.
-• Capacity is decision- and time-specific; presume capacity; support decision-making.
-• Document assessment and supports used.`,
+          "• Understand relevant info\n• Retain info\n• Weigh info\n• Communicate decision\n• Optimise capacity (pain, delirium, hearing, interpreter)",
         full:
-`Capacity is assessed under the MCA and is decision-specific and time-specific. I would check whether the patient can understand the relevant information, retain it long enough, weigh it as part of a decision, and communicate their choice. I would presume capacity unless proven otherwise and support decision-making by addressing reversible factors and using interpreters or aids as needed, documenting the assessment clearly.`
+          "Capacity requires the ability to understand, retain and weigh relevant information and communicate a decision. I’d also optimise capacity by treating reversible factors (pain, delirium), ensuring aids (hearing/vision), and using an interpreter if required."
       },
       f2: {
         bullets:
-`• Treat reversible causes and reassess; aim to decide at a time of best capacity.
-• If urgent and no capacity: best interests, least restrictive.
-• Involve family/IMCA and seniors; document.`,
+          "• Reassess at best time of day\n• Treat reversible causes\n• Defer non-urgent decisions until capacitous\n• If urgent + no capacity → best interests",
         full:
-`If capacity fluctuates, I would treat reversible causes and reassess, aiming to make the decision at a time when capacity is optimal. If the situation becomes urgent and the patient lacks capacity, I would proceed using a best-interests decision with senior input, involving family or an IMCA as appropriate and documenting the rationale and least restrictive approach.`
+          "If capacity fluctuates, I would reassess at a time when the patient is most lucid and treat reversible causes. If not urgent, I’d defer the decision until capacity is present. If urgent and capacity is absent, decisions must be made in best interests with senior/MDT input."
       },
       f3: {
         bullets:
-`• Only if no capacity and treatment is in best interests, or in emergency to prevent serious harm.
-• Respect ADRT/LPA; least restrictive; senior/legal support where needed.`,
+          "• Only if no capacity AND best interests OR emergency\n• Use least restrictive option\n• Senior involvement + document\n• Consider legal framework where contested",
         full:
-`Treatment without consent is only justified if the patient lacks capacity and it is in their best interests, or in an emergency to prevent serious harm, within the legal framework of the MCA. I would check for an ADRT or LPA, choose the least restrictive option, involve seniors, and seek legal/ethics support if there is dispute or time allows.`
+          "Treatment without consent is only appropriate when the patient lacks capacity and the intervention is in their best interests, or in a genuine emergency. It should be the least restrictive option, with senior involvement and clear documentation, and legal advice if contested."
       }
     }
   },
 
-  // 6) BREAKING BAD NEWS
   breaking_bad_news: {
-    title: "Communication: Breaking bad news (new cancer diagnosis)",
+    title: "Breaking bad news: new cancer diagnosis",
     prompts: {
-      main: "Explain new cancer diagnosis. Approach?",
-      f1: "If distressed?",
-      f2: "If doesn’t want details?",
-      f3: "Why empathy?"
+      main: "You need to explain a new cancer diagnosis to a patient. How would you approach this?",
+      f1: "What would you do if the patient becomes very distressed?",
+      f2: "What if they say they don’t want details right now?",
+      f3: "How would you safety-net and plan next steps?"
     },
     models: {
       main: {
         bullets:
-`• Prepare: private room, no interruptions, sit down; invite relative if patient wants.
-• Start with assess understanding + warning shot; ask preference for information.
-• Deliver diagnosis clearly in small chunks; avoid jargon; pause.
-• Respond to emotion with empathy; allow silence; validate feelings.
-• Explain next steps: staging, referrals (MDT/oncology), support services, safety-net.
-• Check understanding (teach-back), invite questions, summarize, document.`,
+          "• Private setting + time + support\n• Ask what they know/want (SPIKES)\n• Give warning shot\n• Clear, jargon-free information\n• Pause, listen, respond to emotion\n• Summarise + check understanding",
         full:
-`I would prepare the environment first: a private room, seated at eye level, minimizing interruptions, and checking whether the patient would like a relative or support person present. I would start by assessing the patient’s current understanding and what they are expecting, and I would ask how much information they would like at this moment.
-
-I would give a brief warning shot—such as “I’m afraid the results show something serious”—and then deliver the diagnosis clearly and compassionately, using simple language and giving information in small chunks, pausing frequently to allow processing. I would avoid jargon and check understanding as I go.
-
-If the patient becomes emotional, I would respond with empathy, allowing silence, acknowledging the shock and distress, and using supportive statements rather than rushing to fill the space. Once the patient is ready, I would outline the immediate next steps: what further tests might be needed, referral to the specialist team and MDT, and what treatments could involve, without overwhelming detail. I would also signpost support such as specialist nurses, psychological support, and written information.
-
-Finally, I would check understanding using teach-back, invite questions, summarize what we’ve discussed, agree a plan for follow-up, and document the conversation and any concerns.`
+          "I would use a structured approach such as SPIKES. I’d ensure privacy, sufficient time, and offer a supporter if the patient wants. I’d explore what they already understand and how much detail they would like. I’d give a warning shot, then explain the diagnosis clearly without jargon, pausing to check understanding. I’d respond to emotion with empathy, summarise key points, and ensure the patient knows what will happen next."
       },
       f1: {
         bullets:
-`• Pause, acknowledge emotion, give time; use silence.
-• Offer support person; assess immediate risk (panic/self-harm cues).
-• Continue only when ready; provide clear next steps and support.`,
+          "• Pause and allow silence\n• Validate feelings\n• Offer tissues/water/support person\n• Assess immediate risk (self-harm if relevant)\n• Arrange follow-up + support services",
         full:
-`If the patient is distressed, I would pause and acknowledge how they are feeling, allowing time and silence. I’d offer a support person and assess for immediate risk if there are cues of severe distress. I would only continue when the patient is ready, focusing on what they need right now and providing clear next steps and support.`
+          "If distressed, I would pause, allow silence, acknowledge their feelings and offer support. I’d make sure they are safe, offer a support person, and arrange appropriate follow-up and signposting (CNS, GP, support groups) depending on local pathways."
       },
       f2: {
         bullets:
-`• Respect autonomy: ask what they want to know now; offer staged information.
-• Ensure minimum necessary info for decisions and safety.
-• Offer follow-up appointment and written resources.`,
+          "• Respect preference\n• Give essential info only\n• Offer written info\n• Arrange follow-up soon\n• Check consent for involving family",
         full:
-`If they don’t want details, I would respect that preference and offer to provide information gradually. I would ensure they still understand the essentials needed for immediate decisions and safety, and I would arrange follow-up with opportunities to revisit information, providing written resources and contact details.`
+          "If they don’t want details, I would respect that while ensuring they understand the essential information and immediate implications. I’d offer written information and arrange a follow-up conversation soon, checking whether they’d like a family member or friend involved."
       },
       f3: {
         bullets:
-`• Builds trust and psychological safety.
-• Improves understanding and engagement.
-• Supports coping and shared decision-making.`,
+          "• Confirm immediate plan + referrals\n• Red flags / when to seek help\n• Contact points (CNS, clinic)\n• Document discussion\n• Follow-up appointment",
         full:
-`Empathy builds trust and helps the patient feel safe and supported during a life-changing conversation. It improves understanding and engagement with care, and supports coping and shared decision-making, which ultimately leads to better outcomes and a stronger therapeutic relationship.`
+          "I would outline the immediate plan (investigations, referral, MDT discussion), give clear safety-net advice and contact points, document what was discussed, and ensure a timely follow-up appointment."
       }
     }
   },
 
-  // 7) TEAM CONFLICT
   team_conflict: {
-    title: "Teamwork: Team conflict affecting patient care",
+    title: "Team conflict affecting patient care",
     prompts: {
-      main: "Team conflict affecting care. What do you do?",
-      f1: "If ignored?",
-      f2: "Why teamwork important?",
-      f3: "What makes teamwork effective?"
+      main: "You notice conflict within the team is starting to affect patient care. What would you do?",
+      f1: "What if you raise it informally but it gets ignored?",
+      f2: "Why is teamwork important in healthcare?",
+      f3: "What behaviours make teams work well under pressure?"
     },
     models: {
       main: {
         bullets:
-`• Patient safety first: identify immediate risks; ensure urgent tasks covered.
-• Address early, privately and respectfully; avoid blame; focus on behaviours and impact.
-• Facilitate structured discussion: shared goal, clarify roles, agree plan and communication method.
-• Escalate to senior/ward lead if persistent or safety compromised.
-• Document/escalate as per policy if serious; reflect and learn.`,
+          "• Recognise patient safety risk\n• Address early, respectfully\n• Focus on shared goal (patient)\n• Facilitate calm discussion\n• Escalate to senior if ongoing\n• Reflect + document if needed",
         full:
-`I would start from the principle that patient safety is the priority. If the conflict is actively affecting care—for example delays or miscommunication—I would ensure immediate clinical tasks are covered and that the patient is safe, involving a senior if needed.
-
-I would then address the issue early and professionally, ideally in a private setting, focusing on specific behaviours and their impact rather than personal blame. I would encourage both parties to share their perspectives and steer the conversation towards a shared goal: safe, effective patient care. Using a structured approach, I would clarify roles and responsibilities, agree a plan for communication—such as handover expectations or escalation routes—and confirm what will change going forward.
-
-If the conflict persists or there is a risk to patients, I would escalate to an appropriate senior, such as the registrar, consultant, nurse in charge or ward manager, and consider wider support like mediation. If there are serious professional concerns, I would follow local policies for raising concerns. I would also reflect on what could prevent recurrence and promote a supportive team culture.`
+          "I would treat this as a patient safety issue. I’d address it early and respectfully, focusing on shared goals and patient care rather than blame. If appropriate, I’d facilitate a calm discussion, encourage clear roles and communication, and involve a senior clinician/line manager if the conflict persists or risks harm."
       },
       f1: {
         bullets:
-`• Re-state patient-safety risk with examples.
-• Escalate via chain of command; involve ward lead.
-• Use incident reporting if patient safety compromised.`,
+          "• Escalate via appropriate channel\n• Senior/clinical supervisor/ward manager\n• Datix/incident reporting if safety affected\n• Keep objective examples",
         full:
-`If my attempt was ignored, I would restate the concern in terms of patient safety with specific examples, and escalate via the appropriate chain of command. If patient safety had been compromised, I would also use incident reporting and governance processes so the issue is addressed and the system can learn.`
+          "If ignored, I would escalate through appropriate channels such as a senior clinician or ward manager, using objective examples of how care is affected. If patient safety is compromised, I would use incident reporting processes."
       },
       f2: {
         bullets:
-`• Reduces errors and delays; improves continuity.
-• Enables shared situational awareness and escalation.
-• Improves patient experience and outcomes.`,
+          "• Coordination + continuity\n• Fewer errors\n• Faster escalation\n• Better outcomes + experience",
         full:
-`Teamwork is crucial because healthcare is complex and relies on coordinated actions. Effective teamwork reduces errors and delays, improves continuity, and ensures concerns are escalated appropriately through shared situational awareness. It also improves the patient experience and outcomes.`
+          "Teamwork improves coordination, reduces errors, supports escalation and continuity of care, and improves patient outcomes and experience."
       },
       f3: {
         bullets:
-`• Clear communication and structured handover.
-• Mutual respect and psychological safety to speak up.
-• Clear roles, leadership, shared goals.
-• Reflection and learning culture.`,
+          "• Clear communication (closed-loop)\n• Respect + psychological safety\n• Role clarity + shared plan\n• Debrief + learning\n• Support under pressure",
         full:
-`Effective teamwork requires clear communication, including structured handover, and mutual respect so people feel able to speak up. It also needs clear roles, leadership and shared goals, alongside a culture of reflection and learning rather than blame.`
+          "Effective teams communicate clearly (including closed-loop communication), maintain mutual respect and psychological safety, have role clarity and shared plans, and use debriefs to learn and improve."
       }
     }
   },
 
-  // 8) CULTURAL / BELIEF-BASED REFUSAL
   cultural_refusal: {
-    title: "Ethics: Patient refuses treatment due to beliefs",
+    title: "Treatment refusal due to cultural/religious beliefs",
     prompts: {
-      main: "Patient refuses treatment due to beliefs. Approach?",
-      f1: "Respect beliefs?",
-      f2: "Conflict with advice?",
-      f3: "Avoid bias?"
+      main: "A patient refuses an important treatment because of cultural or religious beliefs. How would you approach this?",
+      f1: "How would you ensure your communication is culturally safe and the patient feels respected?",
+      f2: "If the refusal risks significant harm, how would you explore alternatives and shared decisions?",
+      f3: "What would you do to avoid stereotyping or assumptions about the patient’s beliefs?"
     },
     models: {
       main: {
         bullets:
-`• Build rapport; explore beliefs and what matters to the patient (open questions).
-• Provide clear medical info: risks/benefits of treatment vs refusal; alternatives.
-• Assess capacity; ensure decision is informed and voluntary; use interpreter if needed.
-• Shared decision-making: align plan with values where possible; negotiate acceptable options.
-• If capacitous refusal persists: respect autonomy; safety-net and follow-up; document.
-• Involve MDT: senior, specialist nurse, chaplain/faith liaison, cultural mediator if helpful (with consent).`,
+          "• Explore beliefs without assumptions\n• Use interpreter if needed\n• Explain risks/benefits clearly\n• Ask what outcomes matter to them\n• Offer acceptable alternatives\n• Document preferences + plan",
         full:
-`I would approach the situation with respect and curiosity rather than judgement, because beliefs often reflect identity and values. I’d start by building rapport and asking open questions to understand the patient’s perspective—what their belief means in practical terms, and what their key priorities and fears are.
-
-I would then explain the medical situation clearly: the expected benefits and risks of the proposed treatment, and the likely consequences of declining it. I would discuss reasonable alternatives or modifications that might be acceptable within their beliefs, and I would check understanding using teach-back. I would also assess capacity and ensure the decision is informed and voluntary, using an interpreter if language could be a barrier and offering time if clinically safe.
-
-Where possible, I would aim for shared decision-making—finding a plan that respects the patient’s values while maintaining safety. If the patient has capacity and continues to refuse, I would respect their autonomy even if I disagree, while providing supportive care, safety-netting, arranging follow-up, and documenting the discussion and decision clearly. I would involve seniors and the MDT, and if the patient wishes, offer chaplaincy/faith liaison or cultural mediation to support them.`
+          "I would start with curiosity and respect, exploring the patient’s beliefs and concerns without assumptions. I’d ensure communication is clear and supported (e.g., interpreter) and explain the risks, benefits and alternatives in an understandable way. I’d ask what matters most to the patient and work towards shared decision-making, including exploring acceptable alternatives. I’d document the discussion, preferences and agreed plan."
       },
       f1: {
         bullets:
-`• Respect = listen, acknowledge, and avoid assumptions; don’t stereotype.
-• Ask what is acceptable; clarify specifics; use interpreter/faith liaison if wanted.`,
+          "• Ask open questions; listen\n• Use interpreter, not family\n• Acknowledge beliefs respectfully\n• Check understanding (teach-back)\n• Offer chaplaincy/community support if desired",
         full:
-`Respecting beliefs means listening carefully, acknowledging their importance, and avoiding assumptions or stereotypes. I would ask the patient what their belief requires in this situation and what options might be acceptable, supporting communication with interpreters or a faith liaison if the patient wants.`
+          "Culturally safe communication means listening with open questions, using professional interpreters where needed, acknowledging beliefs respectfully, and checking understanding. I would offer chaplaincy or other support if the patient wants."
       },
       f2: {
         bullets:
-`• Be honest about medical risks; explain why you recommend treatment.
-• Explore alternatives; confirm capacity; respect informed refusal.
-• Escalate to senior if high-stakes; document and safety-net.`,
+          "• Clarify severity/urgency\n• Discuss alternatives + compromises\n• Involve senior/MDT early\n• Capacity assessment if needed\n• Respect autonomy if capacitous",
         full:
-`If their decision conflicts with medical advice, I would be honest about the risks and why I’m recommending treatment, then explore acceptable alternatives. I would confirm capacity and that the refusal is informed. If it’s high-stakes, I would involve a senior and document clearly, while safety-netting and arranging follow-up.`
+          "If significant harm is likely, I would clearly explain the seriousness and explore alternatives or compromises aligned with the patient’s values. I’d involve seniors and the MDT early, assess capacity if relevant, and respect the patient’s decision if they have capacity."
       },
       f3: {
         bullets:
-`• Reflect on assumptions; use patient-centred questions.
-• Use interpreters; avoid value judgements; treat with equal respect.
-• Seek supervision if unsure; follow GMC equality guidance.`,
+          "• Treat patient as individual\n• Ask, don’t assume\n• Reflect on bias\n• Seek cultural advice appropriately\n• Document patient-specific preferences",
         full:
-`To avoid bias, I would reflect on my assumptions, use patient-centred questions, and avoid value judgements. I would ensure communication is clear—using interpreters where needed—and treat the patient with equal respect. If I felt uncertain, I would seek supervision and follow professional guidance on equality and diversity.`
+          "To avoid stereotyping, I’d treat the patient as an individual, ask rather than assume, reflect on my own bias, seek appropriate advice if needed, and document the patient’s specific preferences rather than generalisations."
       }
     }
   },
 
-  // 9) CONSENT UNDERSTANDING
   consent_understanding: {
-    title: "Consent: Patient agrees but does not understand",
+    title: "Patient lacks understanding during consent",
     prompts: {
-      main: "Patient consents but lacks understanding. What do you do?",
-      f1: "Valid consent?",
-      f2: "Check understanding?",
-      f3: "Why informed consent?"
+      main: "A patient agrees to a procedure but seems not to understand what it involves. How would you handle this?",
+      f1: "How do you assess whether consent is valid?",
+      f2: "What would you do if they still do not understand after explanation?",
+      f3: "Why is informed consent ethically important?"
     },
     models: {
       main: {
         bullets:
-`• Pause procedure: consent not valid if not informed/understood.
-• Re-explain diagnosis/procedure, key risks, benefits, alternatives (including no treatment) in plain language.
-• Check capacity; ensure voluntariness; address pressure/anxiety; offer interpreter/written info.
-• Use teach-back to confirm understanding; invite questions; allow time.
-• If still not understanding: involve senior, delay if non-urgent; document thoroughly.`,
+          "• Pause the process\n• Re-explain in plain language\n• Use diagrams/leaflets\n• Teach-back to confirm understanding\n• Check capacity + voluntariness\n• Involve senior if complex",
         full:
-`If it becomes clear the patient is agreeing without understanding, I would pause and not proceed, because consent must be informed and voluntary. I would re-explain the procedure in plain language, covering the purpose, the key risks and benefits, and alternatives including doing nothing, and I would tailor the depth of information to what is material for that patient.
-
-I would assess capacity and ensure the patient is not being pressured, addressing factors like anxiety, pain or language barriers. I would offer an interpreter, written information, diagrams, or a quieter setting, and I would encourage questions. I would use teach-back—asking the patient to explain in their own words what will happen and the main risks—to confirm genuine understanding.
-
-If the patient still does not understand, I would involve a senior clinician, and if the procedure is non-urgent I would delay to allow time for better explanation or support. I would document the discussion, what information was provided, how understanding was checked, and the final decision.`
+          "I would pause and ensure consent is truly informed. I’d re-explain the procedure, risks, benefits and alternatives in plain language, using visuals if helpful, and confirm understanding using teach-back. I’d ensure capacity and voluntariness, and involve a senior clinician if the situation is complex or time-critical."
       },
       f1: {
         bullets:
-`• Valid consent requires: capacity, adequate information, and voluntariness.
-• Ongoing process; can be withdrawn any time.`,
+          "• Capacity\n• Adequate information (risks/benefits/alternatives)\n• Voluntary decision\n• Time to consider + opportunity to ask questions",
         full:
-`Valid consent requires that the patient has capacity, receives adequate information about risks/benefits/alternatives, and makes the decision voluntarily. It’s an ongoing process and the patient can withdraw consent at any time.`
+          "Valid consent requires capacity, adequate information about risks/benefits/alternatives, and a voluntary decision without coercion, with time and opportunity for questions."
       },
       f2: {
         bullets:
-`• Teach-back; ask them to summarise.
-• Use open questions; address misunderstandings.
-• Use interpreter/visual aids; confirm specific key risks.`,
+          "• Try different approach (simplify, interpreter, written info)\n• Involve senior/appropriate clinician\n• Defer if not urgent\n• If no capacity → MCA best interests route",
         full:
-`I would check understanding by using teach-back and open questions, asking the patient to summarise the procedure and key risks in their own words. I would correct misunderstandings, use interpreters or visual aids where helpful, and confirm they understand the specific risks most relevant to them.`
+          "If understanding remains poor, I’d try alternative explanations, use an interpreter or written material, and involve the senior/most appropriate clinician. If not urgent, I’d defer. If there is no capacity, decisions must follow MCA best-interests processes."
       },
       f3: {
         bullets:
-`• Respects autonomy and legal/ethical duties.
-• Improves adherence and satisfaction; reduces complaints.
-• Prevents harm from unwanted interventions.`,
+          "• Respects autonomy\n• Prevents harm from uninformed decisions\n• Builds trust\n• Legal/professional requirement",
         full:
-`Informed consent is essential because it respects patient autonomy and meets legal and ethical duties. It improves engagement and satisfaction, reduces conflict and complaints, and prevents harm that can arise when patients undergo interventions they would not have chosen if properly informed.`
+          "Informed consent respects autonomy, prevents harm from uninformed decisions, builds trust, and is a core legal and professional requirement."
       }
     }
   },
 
-  // 10) SOCIAL MEDIA BOUNDARY
-  social_media_boundary: {
-    title: "Professionalism: Patient sends friend request on social media",
+  relative_requests_information: {
+    title: "Relative requests patient information",
     prompts: {
-      main: "Patient sends friend request. Response?",
-      f1: "Why boundaries?",
-      f2: "Risks?",
-      f3: "Doctor social media use?"
+      main: "A patient's relative asks you for details about their condition, but the patient has not consented to share information. How would you respond?",
+      f1: "What if the relative insists they have a right to know?",
+      f2: "When can confidentiality be breached?",
+      f3: "How would you handle this sensitively while maintaining trust?"
     },
     models: {
       main: {
         bullets:
-`• Decline politely; do not engage clinically via social media.
-• Explain professional boundaries: maintain therapeutic relationship and fairness to all patients.
-• Offer appropriate channels: clinic contact details, PALS, appointment system.
-• Maintain confidentiality: avoid acknowledging patient relationship publicly.
-• Reflect and document if needed; seek senior advice if patient becomes distressed or persistent.`,
+          "• Stay empathetic + acknowledge concern\n• Explain duty of confidentiality\n• Check patient capacity + wishes\n• Offer to speak to patient / get consent\n• Share general info only (if appropriate)\n• Escalate to senior if conflict",
         full:
-`I would not accept the friend request, and I would avoid any clinical discussion over social media. If appropriate, I would respond in a polite, professional way—if a response is necessary at all—explaining that I have to maintain professional boundaries to protect the patient-doctor relationship and ensure confidentiality and fairness.
-
-I would signpost the patient to appropriate channels for clinical queries, such as the clinic contact details, the appointment system, or patient advice services, depending on the setting. I would also be careful not to disclose or imply the patient relationship publicly, as even acknowledging it can breach confidentiality.
-
-If the patient raised this in person, I would discuss it sensitively, exploring what need they were trying to meet and ensuring they still feel supported within professional boundaries. If the situation felt complex—such as repeated requests or the patient becoming distressed—I would seek senior advice and document relevant discussions according to local guidance.`
+          "I would acknowledge the relative’s worry while explaining that I have a duty to maintain patient confidentiality. I would check whether the patient has capacity and what they want shared. I’d offer to speak with the patient to seek consent and, if appropriate, arrange a joint conversation. Without consent, I would avoid sharing identifiable clinical details, though I may provide general information about processes and support, and I’d involve a senior if the situation is tense or complex."
       },
       f1: {
         bullets:
-`• Boundaries protect trust and prevent dual relationships.
-• Maintain objectivity and fairness; avoid dependence.
-• Safeguards confidentiality and professional integrity.`,
+          "• Calmly restate confidentiality\n• Explain patient autonomy\n• Offer next steps (seek consent, speak to senior)\n• Do not argue; keep boundaries",
         full:
-`Boundaries protect trust and keep the relationship therapeutic rather than personal. They help maintain objectivity, prevent dual relationships or dependence, and safeguard confidentiality. Clear boundaries also protect the integrity of the profession and ensure all patients are treated fairly.`
+          "If they insist, I’d calmly restate that confidentiality belongs to the patient and I cannot disclose details without consent. I’d offer constructive next steps such as obtaining the patient’s permission or involving a senior clinician."
       },
       f2: {
         bullets:
-`• Confidentiality breaches (likes/comments/DMs).
-• Blurred roles, favouritism perception, loss of objectivity.
-• Data/privacy issues; complaints/fitness to practise risk.`,
+          "• Serious risk of harm to patient/others\n• Safeguarding (children/vulnerable adults)\n• Legal requirement (court order)\n• Public interest exceptions\n• Minimum necessary disclosure + document",
         full:
-`The risks include accidental breaches of confidentiality—through messages, comments, or even others seeing a connection—as well as blurred roles that can affect clinical objectivity or create perceptions of favouritism. There are also privacy and data security concerns, and it can lead to complaints or professional regulatory issues if boundaries are not maintained.`
+          "Confidentiality may be breached when required by law, for safeguarding, or when there is a serious risk of harm and disclosure is in the public interest. Any disclosure should be the minimum necessary, with senior advice, and documented."
       },
       f3: {
         bullets:
-`• Follow professional guidance: privacy settings, professionalism, separate accounts if needed.
-• Never post identifiable patient info; be mindful you represent the profession.
-• Avoid online interactions that blur boundaries; seek advice if unsure.`,
+          "• Be kind + validate emotions\n• Offer support resources\n• Explain clearly what you can/can’t share\n• Involve patient where possible\n• Maintain professional, calm tone",
         full:
-`Doctors can use social media, but should follow professional guidance: maintain strong privacy settings, communicate professionally, and never share identifiable patient information. It’s important to remember online behaviour can reflect on the profession. Avoid interactions that blur boundaries with patients, and seek advice if uncertain.`
+          "I’d handle this sensitively by validating their concern, explaining clearly what I can and can’t share, offering support resources, and involving the patient wherever possible to maintain trust on all sides."
       }
     }
   }
