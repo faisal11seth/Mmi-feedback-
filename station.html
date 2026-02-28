@@ -191,6 +191,7 @@
       border-radius:14px;
       padding:12px;
     }
+
     .scores{
       display:grid;
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -206,11 +207,59 @@
     .score b{ display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
     .score span{ font-size:18px; font-weight:850; }
 
+    .summary{
+      margin:8px 0 2px;
+      color:#e2e8f0;
+      font-size:13px;
+      line-height:1.55;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.35);
+      border-radius:12px;
+      padding:10px 12px;
+    }
+
+    .qblock{
+      margin-top:12px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.35);
+      border-radius:14px;
+      padding:12px;
+    }
+    .qtitleRow{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:8px;
+    }
+    .qtitle{
+      font-weight:900;
+      font-size:14px;
+      color:#c7d2fe;
+    }
+    .qscore{
+      font-weight:900;
+      font-size:13px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(15,23,42,.35);
+      color:#e5e7eb;
+      white-space:nowrap;
+    }
+    .qquestion{
+      margin:6px 0 10px;
+      color:#e2e8f0;
+      font-size:13px;
+      line-height:1.55;
+      white-space:pre-wrap;
+    }
+
     .h{
       margin-top:10px;
-      font-weight:850;
-      font-size:13px;
-      color:#c7d2fe;
+      font-weight:900;
+      font-size:12px;
+      color:var(--muted);
     }
     .block{
       margin-top:6px;
@@ -219,6 +268,24 @@
       line-height:1.55;
       white-space:pre-wrap;
     }
+    ul.clean{
+      margin:6px 0 0 18px;
+      padding:0;
+      color:#e2e8f0;
+      font-size:13px;
+      line-height:1.55;
+    }
+    ul.clean li{ margin:4px 0; }
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:12px;
+      white-space:pre-wrap;
+      background:rgba(15,23,42,.25);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:12px;
+      padding:10px 12px;
+      margin-top:6px;
+    }
   </style>
 </head>
 
@@ -226,7 +293,6 @@
   <div class="container">
     <div class="topbar">
       <button class="back" onclick="window.location.href='index.html'">← Back</button>
-
       <div class="brand">
         <span>MedVaultUK</span>
         <img src="logo.png" alt="MedVault logo">
@@ -405,6 +471,28 @@
       document.title = "MedVault • " + station.title;
     }
 
+    function escapeHtml(s){
+      return String(s ?? "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
+    function ul(items){
+      if(!Array.isArray(items) || items.length === 0) return "<div class='block'>(none)</div>";
+      return `<ul class="clean">${items.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`;
+    }
+
+    function labelFor(id){
+      if(id === "main") return "Main";
+      if(id === "f1") return "Follow-up 1";
+      if(id === "f2") return "Follow-up 2";
+      if(id === "f3") return "Follow-up 3";
+      return id;
+    }
+
     function showErr(msg){
       const e = $("err");
       e.style.display = "block";
@@ -420,40 +508,55 @@
       $("btn").textContent = on ? "Generating..." : "Generate feedback";
     }
 
-    function safeScore(v){
+    function safeInt(v){
       const n = Number(v);
-      if(Number.isFinite(n)) return n;
-      return 0;
+      return Number.isFinite(n) ? n : 0;
     }
 
     function renderResults(data){
       const out = $("out");
       out.style.display = "block";
 
-      const scores = data.scores || {};
-      const feedback = data.feedback || {};
-      const models = data.models || {};
+      const ds = data.domain_scores || {};
+      const summary = data.overall_summary || "";
+      const per = Array.isArray(data.per_question) ? data.per_question : [];
 
       out.innerHTML = `
         <div class="scores">
-          <div class="score"><b>Overall</b><span>${safeScore(scores.overall)}/10</span></div>
-          <div class="score"><b>Communication</b><span>${safeScore(scores.communication)}/10</span></div>
-          <div class="score"><b>Empathy</b><span>${safeScore(scores.empathy)}/10</span></div>
-          <div class="score"><b>Ethics/Reasoning</b><span>${safeScore(scores.ethics)}/10</span></div>
-          <div class="score"><b>Insight</b><span>${safeScore(scores.insight)}/10</span></div>
+          <div class="score"><b>Overall</b><span>${safeInt(ds.overall)}/10</span></div>
+          <div class="score"><b>Communication</b><span>${safeInt(ds.communication)}/10</span></div>
+          <div class="score"><b>Empathy</b><span>${safeInt(ds.empathy)}/10</span></div>
+          <div class="score"><b>Ethics/Reasoning</b><span>${safeInt(ds.ethics_reasoning)}/10</span></div>
+          <div class="score"><b>Insight</b><span>${safeInt(ds.insight)}/10</span></div>
         </div>
 
-        <div class="h">Feedback — Main</div>
-        <div class="block">${feedback.main || ""}</div>
+        <div class="summary">${escapeHtml(summary)}</div>
 
-        <div class="h">Feedback — Follow-ups</div>
-        <div class="block">${feedback.followups || ""}</div>
+        ${per.map(q => `
+          <div class="qblock">
+            <div class="qtitleRow">
+              <div class="qtitle">${escapeHtml(labelFor(q.id))}</div>
+              <div class="qscore">${safeInt(q.score)}/10</div>
+            </div>
 
-        <div class="h">Model answer (bullets)</div>
-        <div class="block">${models.bullets || ""}</div>
+            <div class="qquestion">${escapeHtml(q.question)}</div>
 
-        <div class="h">Model answer (full)</div>
-        <div class="block">${models.full || ""}</div>
+            <div class="h">Feedback — Strengths</div>
+            ${ul(q.feedback?.strengths)}
+
+            <div class="h">Feedback — Improvements</div>
+            ${ul(q.feedback?.improvements)}
+
+            <div class="h">Feedback — Next steps</div>
+            ${ul(q.feedback?.next_steps)}
+
+            <div class="h">Model answer (bullets)</div>
+            ${ul(q.model_answer?.bullets)}
+
+            <div class="h">Model answer (full)</div>
+            <div class="mono">${escapeHtml(q.model_answer?.full || "")}</div>
+          </div>
+        `).join("")}
       `;
     }
 
@@ -465,8 +568,8 @@
         return;
       }
 
-      const main = ($("aMain").value || "").trim();
-      if(!main){
+      const main = ($("aMain").value ?? "").trim();
+      if(main.length === 0){
         showErr("Main answer is required.");
         $("aMain").focus();
         return;
@@ -475,13 +578,14 @@
       const payload = {
         stationId,
         stationTitle: station.title,
+        stationDesc: "", // optional, mark.js accepts it
         prompts: station.prompts,
-        name: ($("studentName").value || "").trim(),
+        name: ($("studentName").value ?? "").trim(),
         answers: {
           main,
-          f1: ($("aF1").value || "").trim(),
-          f2: ($("aF2").value || "").trim(),
-          f3: ($("aF3").value || "").trim()
+          f1: ($("aF1").value ?? "").trim(),
+          f2: ($("aF2").value ?? "").trim(),
+          f3: ($("aF3").value ?? "").trim()
         }
       };
 
@@ -499,19 +603,28 @@
         try{
           data = JSON.parse(text);
         }catch{
-          showErr("Function didn't return JSON.\n\n" + text.slice(0, 600));
+          showErr("Function didn't return JSON.\n\n" + text.slice(0, 900));
           return;
         }
 
         if(!res.ok || data.error){
-          showErr(data.error || ("Request failed (" + res.status + ")"));
+          // show backend error properly (including the validation reasons)
+          const msg = data.error || ("Request failed (" + res.status + ")");
+          const details = data.details ? ("\n\nDetails:\n" + data.details) : "";
+          showErr(msg + details);
+          return;
+        }
+
+        // new backend shape check
+        if(!data.domain_scores || !Array.isArray(data.per_question)){
+          showErr("Unexpected response shape from function.\n\n" + text.slice(0, 900));
           return;
         }
 
         renderResults(data);
 
       }catch(e){
-        showErr(e.message || "Network error");
+        showErr(e?.message || "Network error");
       }finally{
         setLoading(false);
       }
