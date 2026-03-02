@@ -207,15 +207,10 @@
     .score span{ font-size:18px; font-weight:850; }
 
     .h{
-      margin-top:12px;
+      margin-top:10px;
       font-weight:850;
       font-size:13px;
       color:#c7d2fe;
-    }
-    .sep{
-      height:1px;
-      background:rgba(148,163,184,.14);
-      margin:12px 0;
     }
     .block{
       margin-top:6px;
@@ -293,7 +288,7 @@
   </div>
 
   <script>
-    // ✅ stationIds MUST match index.html AND netlify/functions/mark.js
+    // ✅ EXACT SAME stationIds as index.html
     const STATIONS_META = {
       blood_transfusion_refusal: {
         title:"Refusal of life-saving blood transfusion",
@@ -387,7 +382,7 @@
       }
     };
 
-    const $ = (id) => document.getElementById(id);
+    function $(id){ return document.getElementById(id); }
 
     function getStationId(){
       const p = new URLSearchParams(window.location.search);
@@ -427,98 +422,61 @@
 
     function safeScore(v){
       const n = Number(v);
-      return Number.isFinite(n) ? n : 0;
+      if(Number.isFinite(n)) return n;
+      return 0;
     }
 
-    function esc(s){
-      return String(s ?? "")
-        .replaceAll("&","&amp;")
-        .replaceAll("<","&lt;")
-        .replaceAll(">","&gt;")
-        .replaceAll('"',"&quot;")
-        .replaceAll("'","&#039;");
-    }
-
-    // ✅ RENDERS THE NEW SHAPE:
-    // {
-    //  scores:{...},
-    //  feedback:{ main:"", followups:{f1:"",f2:"",f3:""} },
-    //  models:{ bullets:{main,f1,f2,f3}, full:{main,f1,f2,f3} }
-    // }
     function renderResults(data){
       const out = $("out");
       out.style.display = "block";
 
-      const s = data?.scores || {};
-      const fb = data?.feedback || {};
-      const fbf = fb?.followups || {};
-      const m = data?.models || {};
-      const mb = m?.bullets || {};
-      const mf = m?.full || {};
+      const scores = data.scores || {};
+      const feedback = data.feedback || {};
+      const models = data.models || {};
 
       out.innerHTML = `
         <div class="scores">
-          <div class="score"><b>Overall</b><span>${safeScore(s.overall)}/10</span></div>
-          <div class="score"><b>Communication</b><span>${safeScore(s.communication)}/10</span></div>
-          <div class="score"><b>Empathy</b><span>${safeScore(s.empathy)}/10</span></div>
-          <div class="score"><b>Ethics/Reasoning</b><span>${safeScore(s.ethics)}/10</span></div>
-          <div class="score"><b>Insight</b><span>${safeScore(s.insight)}/10</span></div>
+          <div class="score"><b>Overall</b><span>${safeScore(scores.overall)}/10</span></div>
+          <div class="score"><b>Communication</b><span>${safeScore(scores.communication)}/10</span></div>
+          <div class="score"><b>Empathy</b><span>${safeScore(scores.empathy)}/10</span></div>
+          <div class="score"><b>Ethics/Reasoning</b><span>${safeScore(scores.ethics)}/10</span></div>
+          <div class="score"><b>Insight</b><span>${safeScore(scores.insight)}/10</span></div>
         </div>
 
         <div class="h">Feedback — Main</div>
-        <div class="block">${esc(fb.main)}</div>
+        <div class="block">${feedback.main || ""}</div>
+
+        <div class="h">Feedback — Follow-ups</div>
+        <div class="block">
+          <div><b>Follow-up 1:</b>\n${(feedback.followups && feedback.followups.f1) || ""}</div>\n
+          <div style="margin-top:10px;"><b>Follow-up 2:</b>\n${(feedback.followups && feedback.followups.f2) || ""}</div>\n
+          <div style="margin-top:10px;"><b>Follow-up 3:</b>\n${(feedback.followups && feedback.followups.f3) || ""}</div>
+        </div>
 
         <div class="h">Model answer — Main (bullets)</div>
-        <div class="block">${esc(mb.main)}</div>
+        <div class="block">${(models.bullets && models.bullets.main) || ""}</div>
 
         <div class="h">Model answer — Main (full)</div>
-        <div class="block">${esc(mf.main)}</div>
-
-        <div class="sep"></div>
-
-        <div class="h">Feedback — Follow-up 1</div>
-        <div class="block">${esc(fbf.f1)}</div>
+        <div class="block">${(models.full && models.full.main) || ""}</div>
 
         <div class="h">Model answer — Follow-up 1 (bullets)</div>
-        <div class="block">${esc(mb.f1)}</div>
+        <div class="block">${(models.bullets && models.bullets.f1) || ""}</div>
 
         <div class="h">Model answer — Follow-up 1 (full)</div>
-        <div class="block">${esc(mf.f1)}</div>
-
-        <div class="sep"></div>
-
-        <div class="h">Feedback — Follow-up 2</div>
-        <div class="block">${esc(fbf.f2)}</div>
+        <div class="block">${(models.full && models.full.f1) || ""}</div>
 
         <div class="h">Model answer — Follow-up 2 (bullets)</div>
-        <div class="block">${esc(mb.f2)}</div>
+        <div class="block">${(models.bullets && models.bullets.f2) || ""}</div>
 
         <div class="h">Model answer — Follow-up 2 (full)</div>
-        <div class="block">${esc(mf.f2)}</div>
-
-        <div class="sep"></div>
-
-        <div class="h">Feedback — Follow-up 3</div>
-        <div class="block">${esc(fbf.f3)}</div>
+        <div class="block">${(models.full && models.full.f2) || ""}</div>
 
         <div class="h">Model answer — Follow-up 3 (bullets)</div>
-        <div class="block">${esc(mb.f3)}</div>
+        <div class="block">${(models.bullets && models.bullets.f3) || ""}</div>
 
         <div class="h">Model answer — Follow-up 3 (full)</div>
-        <div class="block">${esc(mf.f3)}</div>
+        <div class="block">${(models.full && models.full.f3) || ""}</div>
       `;
-    }
-
-    function validateShape(data){
-      // We keep this lenient so it doesn't false-fail.
-      if(!data || typeof data !== "object") return "Response was not an object.";
-      if(!data.scores || typeof data.scores !== "object") return "Missing scores.";
-      if(!data.feedback || typeof data.feedback !== "object") return "Missing feedback.";
-      if(!data.models || typeof data.models !== "object") return "Missing models.";
-      if(!data.feedback.followups || typeof data.feedback.followups !== "object") return "Missing feedback.followups.";
-      if(!data.models.bullets || typeof data.models.bullets !== "object") return "Missing models.bullets.";
-      if(!data.models.full || typeof data.models.full !== "object") return "Missing models.full.";
-      return "";
     }
 
     async function generate(){
@@ -560,30 +518,24 @@
 
         const text = await res.text();
 
+        // ✅ CHANGE: if server returns HTML (timeout), don't try to parse + dump it
         let data;
         try{
           data = JSON.parse(text);
         }catch{
-          showErr("Function didn't return JSON.\n\n" + text.slice(0, 900));
+          showErr("Server took too long (timeout). Please try again.");
           return;
         }
 
         if(!res.ok || data.error){
           showErr(data.error || ("Request failed (" + res.status + ")"));
-          if(data.details) $("err").textContent += "\n\nDetails:\n" + String(data.details).slice(0, 900);
-          return;
-        }
-
-        const shapeErr = validateShape(data);
-        if(shapeErr){
-          showErr("Unexpected response shape from function.\n" + shapeErr + "\n\nRaw (truncated):\n" + text.slice(0, 900));
           return;
         }
 
         renderResults(data);
 
       }catch(e){
-        showErr(e?.message || "Network error");
+        showErr(e.message || "Network error");
       }finally{
         setLoading(false);
       }
