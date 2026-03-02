@@ -426,6 +426,7 @@
       return 0;
     }
 
+    // ✅ UPDATED: matches your new mark.js JSON shape
     function renderResults(data){
       const out = $("out");
       out.style.display = "block";
@@ -433,6 +434,10 @@
       const scores = data.scores || {};
       const feedback = data.feedback || {};
       const models = data.models || {};
+
+      const followFb = feedback.followups || {};
+      const bullets = models.bullets || {};
+      const full = models.full || {};
 
       out.innerHTML = `
         <div class="scores">
@@ -446,36 +451,25 @@
         <div class="h">Feedback — Main</div>
         <div class="block">${feedback.main || ""}</div>
 
-        <div class="h">Feedback — Follow-ups</div>
-        <div class="block">
-          <div><b>Follow-up 1:</b>\n${(feedback.followups && feedback.followups.f1) || ""}</div>\n
-          <div style="margin-top:10px;"><b>Follow-up 2:</b>\n${(feedback.followups && feedback.followups.f2) || ""}</div>\n
-          <div style="margin-top:10px;"><b>Follow-up 3:</b>\n${(feedback.followups && feedback.followups.f3) || ""}</div>
-        </div>
+        <div class="h">Feedback — Follow-up 1</div>
+        <div class="block">${followFb.f1 || ""}</div>
+
+        <div class="h">Feedback — Follow-up 2</div>
+        <div class="block">${followFb.f2 || ""}</div>
+
+        <div class="h">Feedback — Follow-up 3</div>
+        <div class="block">${followFb.f3 || ""}</div>
 
         <div class="h">Model answer — Main (bullets)</div>
-        <div class="block">${(models.bullets && models.bullets.main) || ""}</div>
+        <div class="block">${bullets.main || ""}</div>
 
         <div class="h">Model answer — Main (full)</div>
-        <div class="block">${(models.full && models.full.main) || ""}</div>
+        <div class="block">${full.main || ""}</div>
 
-        <div class="h">Model answer — Follow-up 1 (bullets)</div>
-        <div class="block">${(models.bullets && models.bullets.f1) || ""}</div>
-
-        <div class="h">Model answer — Follow-up 1 (full)</div>
-        <div class="block">${(models.full && models.full.f1) || ""}</div>
-
-        <div class="h">Model answer — Follow-up 2 (bullets)</div>
-        <div class="block">${(models.bullets && models.bullets.f2) || ""}</div>
-
-        <div class="h">Model answer — Follow-up 2 (full)</div>
-        <div class="block">${(models.full && models.full.f2) || ""}</div>
-
-        <div class="h">Model answer — Follow-up 3 (bullets)</div>
-        <div class="block">${(models.bullets && models.bullets.f3) || ""}</div>
-
-        <div class="h">Model answer — Follow-up 3 (full)</div>
-        <div class="block">${(models.full && models.full.f3) || ""}</div>
+        <div class="h">Model answer — Follow-ups (bullets)</div>
+        <div class="block"><b>Follow-up 1:</b>\n${bullets.f1 || ""}</div>
+        <div class="block"><b>Follow-up 2:</b>\n${bullets.f2 || ""}</div>
+        <div class="block"><b>Follow-up 3:</b>\n${bullets.f3 || ""}</div>
       `;
     }
 
@@ -517,13 +511,11 @@
         });
 
         const text = await res.text();
-
-        // ✅ CHANGE: if server returns HTML (timeout), don't try to parse + dump it
         let data;
         try{
           data = JSON.parse(text);
         }catch{
-          showErr("Server took too long (timeout). Please try again.");
+          showErr("Function didn't return JSON.\n\n" + text.slice(0, 600));
           return;
         }
 
