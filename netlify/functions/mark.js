@@ -1,86 +1,145 @@
 // netlify/functions/mark.js
+
 const fs = require("fs");
 const path = require("path");
 
-function json(statusCode, obj) {
-  return {
-    statusCode,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(obj),
-  };
+// Optional: load exemplars from netlify/functions/exemplars.json if it exists
+function loadExemplars() {
+  try {
+    const p = path.join(__dirname, "exemplars.json");
+    if (fs.existsSync(p)) {
+      const raw = fs.readFileSync(p, "utf8");
+      const json = JSON.parse(raw);
+      return json;
+    }
+  } catch (e) {
+    // swallow – exemplars are optional
+  }
+  return null;
 }
 
-function loadExemplars(stationId) {
-  try {
-    const p = path.join(process.cwd(), "training", `${stationId}.json`);
-    if (!fs.existsSync(p)) return null;
-    const raw = fs.readFileSync(p, "utf8");
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+// Keep prompt tight: only include station exemplars if present
+function pickStationExemplars(allExemplars, stationId) {
+  if (!allExemplars || !stationId) return null;
+  const x = allExemplars[stationId];
+  if (!x) return null;
+  return x;
+}
+
+// Reduce payload size: clamp very long answers (prevents runaway tokens)
+function clampText(s, maxChars) {
+  const t = String(s || "").trim();
+  if (!t) return "";
+  return t.length > maxChars ? t.slice(0, maxChars) + "…" : t;
 }
 
 exports.handler = async (event) => {
   try {
-    if (event.httpMethod !== "POST") return json(405, { error: "Method Not Allowed" });
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, body: "Method Not Allowed" };
+    }
 
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return json(500, { error: "OPENAI_API_KEY missing in Netlify env vars." });
+    if (!apiKey) {
+      return {
+        statusCode: 500,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          error: "Server misconfigured: OPENAI_API_KEY missing in Netlify env vars.",
+        }),
+      };
+    }
 
     const body = JSON.parse(event.body || "{}");
     const { stationId, stationTitle, prompts, answers, name } = body || {};
 
-    if (!stationId) return json(400, { error: "stationId missing" });
-    if (!prompts?.main) return json(400, { error: "prompts missing" });
-    if (!String(answers?.main || "").trim()) return json(400, { error: "Main answer is required." });
+    if (!stationId) {
+      return { statusCode: 400, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ error: "stationId missing" }) };
+    }
+    if (!prompts || !prompts.main) {
+      return { statusCode: 400, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ error: "prompts missing" }) };
+    }
+    if (!answers || !String(answers.main || "").trim()) {
+      return { statusCode: 400, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ error: "Main answer is required." }) };
+    }
 
-    const ex = loadExemplars(stationId);
+    const exemplarsAll = loadExemplars();
+    const stationEx = pickStationExemplars(exemplarsAll, stationId);
 
-    // Keep tokens controlled: include only EXEMPLARS + RUBRIC if available
-    const exemplarBlock = ex
-      ? `
-RUBRIC (use for scoring):
-${JSON.stringify(ex.rubric || {}, null, 0)}
+    // Clamp inputs so one giant paste can’t nuke runtime
+    const aMain = clampText(answers.main, 2200);
+    const aF1 = clampText(answers.f1, 1200);
+    const aF2 = clampText(answers.f2, 1200);
+    const aF3 = clampText(answers.f3, 1200);
 
-EXEMPLARS (calibrate scoring; do not copy verbatim, write original model answers):
-${JSON.stringify(ex.exemplars || {}, null, 0)}
-`.trim()
-      : "No exemplar file found for this stationId.";
+    // Keep exemplars compact too (but still useful)
+    // Expected exemplars.json shape (flexible):
+    // exemplars[stationId] = {
+    //   main: { excellent: "...", average: "...", poor: "..." },
+    //   f1:   { excellent: "...", average: "...", poor: "..." },
+    //   f2:   { excellent: "...", average: "...", poor: "..." },
+    //   f3:   { excellent: "...", average: "...", poor: "..." }
+    // }
+    function exBlock(label, obj) {
+      if (!obj) return "";
+      const ex = {
+        excellent: clampText(obj.excellent, 900),
+        average: clampText(obj.average, 700),
+        poor: clampText(obj.poor, 500),
+      };
+      // only include fields that exist
+      const lines = [];
+      if (ex.excellent) lines.push(`- Excellent: ${ex.excellent}`);
+      if (ex.average) lines.push(`- Average: ${ex.average}`);
+      if (ex.poor) lines.push(`- Poor: ${ex.poor}`);
+      if (!lines.length) return "";
+      return `\n${label} EXEMPLARS:\n${lines.join("\n")}\n`;
+    }
 
+    const exemplarsText = stationEx
+      ? [
+          exBlock("MAIN", stationEx.main),
+          exBlock("F1", stationEx.f1),
+          exBlock("F2", stationEx.f2),
+          exBlock("F3", stationEx.f3),
+        ].join("")
+      : "";
+
+    // ✅ Key optimisation: full model answer ONLY for MAIN.
+    // Follow-ups get bullets only (fast, still high quality).
     const input = `
 You are a strict UK medical school MMI examiner.
 
-Return ONLY valid JSON (no markdown, no extra keys).
+Return ONLY valid JSON. No markdown. No extra keys. No explanations outside JSON.
 
 Station ID: ${stationId}
-Station Title: ${stationTitle || ""}
+Station Title: ${clampText(stationTitle || "", 120)}
 
 PROMPTS:
-Main: ${prompts.main}
-F1: ${prompts.f1 || ""}
-F2: ${prompts.f2 || ""}
-F3: ${prompts.f3 || ""}
+Main: ${clampText(prompts.main, 350)}
+F1: ${clampText(prompts.f1 || "", 220)}
+F2: ${clampText(prompts.f2 || "", 220)}
+F3: ${clampText(prompts.f3 || "", 220)}
 
-STUDENT (optional): ${name || ""}
+STUDENT NAME (optional): ${clampText(name || "", 60)}
 
 ANSWERS:
-Main: ${answers.main}
-F1: ${answers.f1 || ""}
-F2: ${answers.f2 || ""}
-F3: ${answers.f3 || ""}
-
-${exemplarBlock}
+Main: ${aMain}
+F1: ${aF1}
+F2: ${aF2}
+F3: ${aF3}
+${exemplarsText ? `\nREFERENCE EXEMPLARS (use to calibrate scoring + tone; do not copy verbatim):\n${exemplarsText}\n` : ""}
 
 Rules:
-- Score 0–2/10 if an answer is nonsense/too short; explain why.
-- Give feedback separately for MAIN and each FOLLOW-UP.
-- Provide model answers:
-- MAIN: bullets + full (detailed)
-- FOLLOW-UPS: bullets only (concise)
-- Full model answers should be a single readable paragraph (no labels like "Opening line:" etc).
+- Score each domain 0–10. Overall should reflect the whole performance.
+- If an answer is nonsense/too short (random letters / irrelevant), score 0–2 and explain clearly.
+- Give feedback separately for MAIN and each FOLLOW-UP (f1,f2,f3). Be specific and improvement-focused.
+- Model answers:
+  - MAIN: provide BOTH bullets AND a FULL, natural, user-friendly model answer (no weird labels like "safety net:" mid-paragraph).
+  - FOLLOW-UPS: provide BULLETS only (concise but high quality).
 
-Return JSON in this EXACT shape:
+Return JSON in EXACTLY this shape:
+
 {
   "scores": { "overall": 0, "communication": 0, "empathy": 0, "ethics": 0, "insight": 0 },
   "feedback": {
@@ -89,13 +148,13 @@ Return JSON in this EXACT shape:
   },
   "models": {
     "bullets": { "main": "string", "f1": "string", "f2": "string", "f3": "string" },
-    "full": { "main": "string", "f1": "string", "f2": "string", "f3": "string" }
+    "full": { "main": "string" }
   }
 }
 `.trim();
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000);
+    const timeout = setTimeout(() => controller.abort(), 24000); // keep under typical limits
 
     const resp = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -107,6 +166,8 @@ Return JSON in this EXACT shape:
         model: "gpt-4.1-mini",
         input,
         text: { format: { type: "json_object" } },
+        // optional but helps prevent runaway verbose outputs
+        // max_output_tokens: 1400,
       }),
       signal: controller.signal,
     });
@@ -114,24 +175,50 @@ Return JSON in this EXACT shape:
     clearTimeout(timeout);
 
     const raw = await resp.text();
-    if (!resp.ok) return json(resp.status, { error: `OpenAI request failed (${resp.status})`, details: raw.slice(0, 900) });
+    if (!resp.ok) {
+      return {
+        statusCode: resp.status,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          error: `OpenAI request failed (${resp.status})`,
+          details: raw.slice(0, 900),
+        }),
+      };
+    }
 
     const data = JSON.parse(raw);
-    const outText = data?.output?.[0]?.content?.find((c) => c.type === "output_text")?.text || "";
+    const outText =
+      data?.output?.[0]?.content?.find((c) => c.type === "output_text")?.text || "";
 
     let parsed;
     try {
       parsed = JSON.parse(outText);
-    } catch {
-      return json(500, { error: "Model returned non-JSON output.", details: outText.slice(0, 900) });
+    } catch (e) {
+      return {
+        statusCode: 500,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          error: "Model returned non-JSON output unexpectedly.",
+          details: outText.slice(0, 900),
+        }),
+      };
     }
 
-    return json(200, parsed);
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(parsed),
+    };
   } catch (err) {
     const msg =
       err?.name === "AbortError"
         ? "Request timed out (server abort). Try shorter answers or reduce output."
         : err?.message || "Unknown server error";
-    return json(500, { error: msg });
+
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: msg }),
+    };
   }
 };
