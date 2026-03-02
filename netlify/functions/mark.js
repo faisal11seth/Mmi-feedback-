@@ -75,7 +75,9 @@ ${exemplarBlock}
 Rules:
 - Score 0–2/10 if an answer is nonsense/too short; explain why.
 - Give feedback separately for MAIN and each FOLLOW-UP.
-- Give model answers separately for MAIN and each FOLLOW-UP in BOTH bullets and full.
+- Provide model answers:
+- MAIN: bullets + full (detailed)
+- FOLLOW-UPS: bullets only (concise)
 - Full model answers should be a single readable paragraph (no labels like "Opening line:" etc).
 
 Return JSON in this EXACT shape:
