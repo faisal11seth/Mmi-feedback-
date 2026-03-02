@@ -1,235 +1,404 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MMI Station</title>
-
-<style>
-body {
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  background: #0b1220;
-  color: #e8ecf1;
-  margin: 0;
-  padding: 24px;
-}
-
-.card {
-  background: #121a2b;
-  border-radius: 14px;
-  padding: 20px;
-  margin-bottom: 18px;
-  border: 1px solid rgba(255,255,255,0.05);
-}
-
-textarea {
-  width: 100%;
-  min-height: 110px;
-  background: #0f172a;
-  color: #e8ecf1;
-  border: 1px solid #2b354d;
-  border-radius: 10px;
-  padding: 12px;
-  resize: vertical;
-}
-
-button {
-  background: linear-gradient(90deg,#6c7cff,#8b5cf6);
-  border: none;
-  color: white;
-  padding: 14px 22px;
-  border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-button:hover { opacity: .9 }
-
-.h {
-  font-weight: 700;
-  margin: 18px 0 6px;
-}
-
-.block {
-  background: #0f172a;
-  border-radius: 10px;
-  padding: 12px;
-  border: 1px solid #26314a;
-  white-space: pre-wrap;
-}
-
-.bullets {
-  background: #0f172a;
-  border-radius: 10px;
-  padding: 12px 16px;
-  border: 1px solid #26314a;
-}
-
-.bullets ul {
-  margin: 0;
-  padding-left: 18px;
-}
-
-.scores {
-  display: grid;
-  grid-template-columns: repeat(5,1fr);
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.score {
-  background: #0f172a;
-  border: 1px solid #26314a;
-  border-radius: 10px;
-  padding: 10px;
-  text-align: center;
-}
-
-.score span {
-  display: block;
-  font-size: 20px;
-  font-weight: 700;
-  margin-top: 4px;
-}
-
-#error {
-  margin-top: 12px;
-  color: #ff9aa2;
-  white-space: pre-wrap;
-}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MMI Station</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#0f1a33;
+      --panel2:#0c162d;
+      --text:#e8eefc;
+      --muted:#a8b4d6;
+      --accent:#6f7bff;
+      --danger:#ff5d5d;
+      --border:rgba(255,255,255,.10);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1200px 700px at 20% -10%, #1b2a58 0%, rgba(27,42,88,0) 60%),
+                  radial-gradient(900px 600px at 110% 10%, #2a1b58 0%, rgba(42,27,88,0) 55%),
+                  var(--bg);
+      color:var(--text);
+      padding:24px;
+    }
+    .wrap{max-width:980px;margin:0 auto}
+    .top{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px
+    }
+    .brand{font-weight:700;letter-spacing:.3px;color:var(--muted);font-size:14px}
+    h1{margin:0;font-size:22px}
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    .prompt{
+      background: rgba(255,255,255,.03);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:12px;
+      margin-top:10px;
+      color:var(--muted);
+      line-height:1.4;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:12px;
+      margin-top:14px;
+    }
+    @media(min-width:860px){
+      .grid{grid-template-columns:1fr 1fr}
+      .span2{grid-column:1 / -1}
+    }
+    label{display:block;font-weight:650;margin-bottom:6px}
+    textarea{
+      width:100%;
+      min-height:110px;
+      resize:vertical;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background: rgba(0,0,0,.18);
+      color:var(--text);
+      padding:12px;
+      outline:none;
+      line-height:1.45;
+    }
+    textarea:focus{border-color:rgba(111,123,255,.6); box-shadow:0 0 0 3px rgba(111,123,255,.15)}
+    .btnrow{display:flex;align-items:center;gap:12px;margin-top:14px}
+    button{
+      appearance:none;border:0;
+      border-radius:14px;
+      padding:12px 16px;
+      font-weight:700;
+      background:var(--accent);
+      color:#0b1020;
+      cursor:pointer;
+    }
+    button:disabled{opacity:.55;cursor:not-allowed}
+    .tip{color:var(--muted);font-size:13px}
+    .err{
+      display:none;
+      margin-top:12px;
+      border:1px solid rgba(255,93,93,.35);
+      background: rgba(255,93,93,.08);
+      color:#ffd0d0;
+      padding:12px;
+      border-radius:12px;
+      white-space:pre-wrap;
+    }
+    .out{display:none;margin-top:18px}
+    .scores{
+      display:grid; gap:10px;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      margin-bottom:14px;
+    }
+    @media(min-width:860px){ .scores{grid-template-columns: repeat(5, minmax(0,1fr));} }
+    .score{
+      background: rgba(255,255,255,.03);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px;
+    }
+    .score .k{color:var(--muted);font-size:12px;margin-bottom:6px}
+    .score .v{font-size:18px;font-weight:800}
+    .h{
+      margin-top:14px;
+      font-weight:850;
+      letter-spacing:.2px;
+      color:var(--text);
+    }
+    .block{
+      margin-top:8px;
+      border:1px solid var(--border);
+      background: rgba(0,0,0,.16);
+      border-radius:12px;
+      padding:12px;
+      line-height:1.5;
+      white-space:pre-wrap;
+    }
+    ul{margin:8px 0 0 18px}
+    li{margin:6px 0}
+    .sep{height:1px;background:rgba(255,255,255,.08);margin:16px 0}
+  </style>
 </head>
 
 <body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">MMI Feedback</div>
+    <div class="brand" id="stationIdTag"></div>
+  </div>
 
-<div class="card">
-  <div class="h">Your answer (Main)</div>
-  <textarea id="main"></textarea>
+  <div class="card">
+    <h1 id="stationTitle">Loading…</h1>
 
-  <div class="h">Follow-up 1</div>
-  <textarea id="f1"></textarea>
+    <div class="prompt">
+      <div style="font-weight:750;color:var(--text);margin-bottom:6px">Station prompt</div>
+      <div id="qMain">Loading…</div>
+    </div>
 
-  <div class="h">Follow-up 2</div>
-  <textarea id="f2"></textarea>
+    <div class="grid">
+      <div class="span2">
+        <label for="aMain">Your answer (Main)</label>
+        <textarea id="aMain" placeholder="Type your main answer…"></textarea>
+      </div>
 
-  <div class="h">Follow-up 3</div>
-  <textarea id="f3"></textarea>
+      <div>
+        <div class="prompt" style="margin-top:0">
+          <div style="font-weight:750;color:var(--text);margin-bottom:6px">Follow-up 1</div>
+          <div id="qF1">Loading…</div>
+        </div>
+        <label for="aF1" style="margin-top:10px">Your answer (Follow-up 1)</label>
+        <textarea id="aF1" placeholder="Type your follow-up 1…"></textarea>
+      </div>
 
-  <br><br>
-  <button onclick="submitAnswer()">Generate feedback</button>
+      <div>
+        <div class="prompt" style="margin-top:0">
+          <div style="font-weight:750;color:var(--text);margin-bottom:6px">Follow-up 2</div>
+          <div id="qF2">Loading…</div>
+        </div>
+        <label for="aF2" style="margin-top:10px">Your answer (Follow-up 2)</label>
+        <textarea id="aF2" placeholder="Type your follow-up 2…"></textarea>
+      </div>
 
-  <div id="error"></div>
+      <div class="span2">
+        <div class="prompt" style="margin-top:0">
+          <div style="font-weight:750;color:var(--text);margin-bottom:6px">Follow-up 3</div>
+          <div id="qF3">Loading…</div>
+        </div>
+        <label for="aF3" style="margin-top:10px">Your answer (Follow-up 3)</label>
+        <textarea id="aF3" placeholder="Type your follow-up 3…"></textarea>
+      </div>
+    </div>
+
+    <div class="btnrow">
+      <button id="btn">Generate feedback</button>
+      <div class="tip">Tip: write how you'd speak in a timed MMI (clear + structured). If feedback is slow, try shorter answers.</div>
+    </div>
+
+    <div id="err" class="err"></div>
+
+    <div id="out" class="out">
+      <div id="scores" class="scores"></div>
+
+      <div class="h">Feedback — Main</div>
+      <div id="fbMain" class="block"></div>
+
+      <div class="h">Feedback — Follow-ups</div>
+      <div class="block" id="fbF1"></div>
+      <div class="block" id="fbF2"></div>
+      <div class="block" id="fbF3"></div>
+
+      <div class="sep"></div>
+
+      <div class="h">Model answer — Main</div>
+      <div id="mMainBullets" class="block"></div>
+      <div id="mMainFull" class="block"></div>
+
+      <div class="sep"></div>
+
+      <div class="h">Model answer — Follow-up 1</div>
+      <div id="mF1" class="block"></div>
+
+      <div class="h">Model answer — Follow-up 2</div>
+      <div id="mF2" class="block"></div>
+
+      <div class="h">Model answer — Follow-up 3</div>
+      <div id="mF3" class="block"></div>
+    </div>
+  </div>
 </div>
 
-<div id="out" class="card" style="display:none;"></div>
-
 <script>
-function $(id){ return document.getElementById(id); }
+/* =========================
+   PASTE YOUR STATIONS HERE
+   =========================
+   You MUST keep your existing stations data.
+   Example required shape:
+   const STATIONS = {
+     "blood_transfusion_refusal": {
+       title: "...",
+       prompts: { main:"...", f1:"...", f2:"...", f3:"..." }
+     },
+     ...
+   };
+*/
+const STATIONS = window.STATIONS || {}; // if you already load it elsewhere, fine
 
-function escapeHtml(s){
-  return String(s||"")
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;");
+const $ = (id) => document.getElementById(id);
+
+function showErr(msg){
+  $("err").style.display = "block";
+  $("err").textContent = "Error:\n" + msg;
+  $("out").style.display = "none";
+}
+function clearErr(){
+  $("err").style.display = "none";
+  $("err").textContent = "";
+}
+function setLoading(on){
+  $("btn").disabled = on;
+  $("btn").textContent = on ? "Generating..." : "Generate feedback";
 }
 
-function safeScore(x){
-  return (x===0 || x) ? x : "-";
+function parseStationId(){
+  const qs = new URLSearchParams(location.search);
+  // allow ?id=... or ?station=...
+  return qs.get("id") || qs.get("station") || "";
 }
 
-function bulletsToHtml(text){
-  if(!text || !text.trim()) return "";
-  const items = text.split(/[\n•-]+/).map(t=>t.trim()).filter(Boolean);
-  if(!items.length) return "";
-  return `<div class="bullets"><ul>${
-    items.map(i=>`<li>${escapeHtml(i)}</li>`).join("")
-  }</ul></div>`;
-}
+function toBulletHTML(text){
+  const t = String(text || "").trim();
+  if (!t) return "";
+  const lines = t.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
 
-async function submitAnswer(){
-  $("error").textContent = "";
-  $("out").style.display="none";
-
-  const body = {
-    stationId: "station",
-    prompts: { main:"", f1:"", f2:"", f3:"" },
-    answers: {
-      main: $("main").value,
-      f1: $("f1").value,
-      f2: $("f2").value,
-      f3: $("f3").value
-    }
-  };
-
-  try{
-    const r = await fetch("/.netlify/functions/mark",{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify(body)
-    });
-
-    const data = await r.json();
-    if(!r.ok) throw new Error(data.error || "Server error");
-
-    renderResults(data);
-
-  }catch(e){
-    $("error").textContent = "Error:\n"+e.message;
+  // If it looks like "- item" bullets, convert to UL
+  const bulletLines = lines.filter(l => /^[-•]\s+/.test(l));
+  if (bulletLines.length >= Math.max(2, Math.floor(lines.length * 0.5))) {
+    const items = lines
+      .filter(l => /^[-•]\s+/.test(l))
+      .map(l => l.replace(/^[-•]\s+/, ""));
+    return `<ul>${items.map(i => `<li>${escapeHTML(i)}</li>`).join("")}</ul>`;
   }
+
+  // Otherwise keep as prewrap text
+  return escapeHTML(t).replace(/\n/g, "<br>");
+}
+
+function escapeHTML(s){
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function renderScores(scores){
+  const s = scores || {};
+  const cards = [
+    ["Overall", s.overall],
+    ["Communication", s.communication],
+    ["Empathy", s.empathy],
+    ["Ethics/Reasoning", s.ethics],
+    ["Insight", s.insight],
+  ];
+  $("scores").innerHTML = cards.map(([k,v]) => `
+    <div class="score">
+      <div class="k">${escapeHTML(k)}</div>
+      <div class="v">${Number.isFinite(Number(v)) ? Number(v) : 0}/10</div>
+    </div>
+  `).join("");
 }
 
 function renderResults(data){
-  const out = $("out");
-  out.style.display="block";
+  $("out").style.display = "block";
 
-  const s = data.scores||{};
-  const fb = data.feedback||{};
-  const fbf = fb.followups||{};
-  const m = data.models||{};
-  const mb = m.bullets||{};
-  const mf = m.full||{};
+  renderScores(data.scores);
 
-  function section(title, content){
-    if(!content || !String(content).trim()) return "";
-    return `<div class="h">${title}</div>
-            <div class="block">${escapeHtml(content)}</div>`;
-  }
+  const fb = data.feedback || {};
+  const fbf = fb.followups || {};
 
-  function bulletSection(title, text){
-    if(!text || !String(text).trim()) return "";
-    return `<div class="h">${title}</div>
-            ${bulletsToHtml(text)}`;
-  }
+  $("fbMain").textContent = fb.main || "";
 
-  out.innerHTML = `
-    <div class="scores">
-      <div class="score"><b>Overall</b><span>${safeScore(s.overall)}/10</span></div>
-      <div class="score"><b>Communication</b><span>${safeScore(s.communication)}/10</span></div>
-      <div class="score"><b>Empathy</b><span>${safeScore(s.empathy)}/10</span></div>
-      <div class="score"><b>Ethics</b><span>${safeScore(s.ethics)}/10</span></div>
-      <div class="score"><b>Insight</b><span>${safeScore(s.insight)}/10</span></div>
-    </div>
+  $("fbF1").textContent = "Follow-up 1:\n" + (fbf.f1 || "");
+  $("fbF2").textContent = "Follow-up 2:\n" + (fbf.f2 || "");
+  $("fbF3").textContent = "Follow-up 3:\n" + (fbf.f3 || "");
 
-    ${section("Feedback — Main", fb.main)}
-    ${section("Feedback — Follow-up 1", fbf.f1)}
-    ${section("Feedback — Follow-up 2", fbf.f2)}
-    ${section("Feedback — Follow-up 3", fbf.f3)}
+  const m = data.models || {};
+  const mb = m.bullets || {};
+  const mf = m.full || {};
 
-    ${bulletSection("Model answer — Main (bullets)", mb.main)}
+  // Main: bullets + full
+  $("mMainBullets").innerHTML = toBulletHTML(mb.main || "");
+  $("mMainFull").textContent = (mf.main || "").trim() || "(No full model answer returned.)";
 
-    ${
-      mf.main && String(mf.main).trim()
-        ? `<div class="h">Model answer — Main (full)</div>
-           <div class="block">${escapeHtml(mf.main)}</div>`
-        : ""
-    }
-
-    ${bulletSection("Model answer — Follow-up 1", mb.f1)}
-    ${bulletSection("Model answer — Follow-up 2", mb.f2)}
-    ${bulletSection("Model answer — Follow-up 3", mb.f3)}
-  `;
+  // Follow-ups: bullets ONLY, but we show them under one heading each
+  $("mF1").innerHTML = toBulletHTML(mb.f1 || "");
+  $("mF2").innerHTML = toBulletHTML(mb.f2 || "");
+  $("mF3").innerHTML = toBulletHTML(mb.f3 || "");
 }
-</script>
 
+(function init(){
+  const stationId = parseStationId();
+  $("stationIdTag").textContent = stationId ? `ID: ${stationId}` : "";
+  const station = STATIONS?.[stationId];
+
+  if (!stationId || !station) {
+    $("stationTitle").textContent = "Station not found";
+    $("qMain").textContent = "This station link is invalid. Go back and select a station again.";
+    $("qF1").textContent = "";
+    $("qF2").textContent = "";
+    $("qF3").textContent = "";
+    $("btn").disabled = true;
+    return;
+  }
+
+  $("stationTitle").textContent = station.title || "MMI Station";
+  $("qMain").textContent = station.prompts?.main || "";
+  $("qF1").textContent = station.prompts?.f1 || "";
+  $("qF2").textContent = station.prompts?.f2 || "";
+  $("qF3").textContent = station.prompts?.f3 || "";
+  document.title = "MMI • " + (station.title || stationId);
+
+  $("btn").addEventListener("click", async () => {
+    clearErr();
+    setLoading(true);
+
+    const payload = {
+      stationId,
+      stationTitle: station.title || "",
+      prompts: station.prompts || {},
+      answers: {
+        main: $("aMain").value || "",
+        f1: $("aF1").value || "",
+        f2: $("aF2").value || "",
+        f3: $("aF3").value || "",
+      }
+    };
+
+    try{
+      const res = await fetch("/.netlify/functions/mark", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const text = await res.text();
+
+      if (!res.ok) {
+        // Try parse JSON error first
+        try{
+          const j = JSON.parse(text);
+          showErr((j.error || "Request failed") + (j.details ? ("\n\n" + j.details) : ""));
+        }catch{
+          showErr("Request failed (" + res.status + ")\n\n" + text.slice(0, 900));
+        }
+        return;
+      }
+
+      let data;
+      try{ data = JSON.parse(text); }
+      catch{
+        showErr("Function didn't return JSON.\n\n" + text.slice(0, 900));
+        return;
+      }
+
+      renderResults(data);
+    } catch(e){
+      showErr(e?.message || "Network error");
+    } finally{
+      setLoading(false);
+    }
+  });
+})();
+</script>
 </body>
 </html>
