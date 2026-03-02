@@ -1,85 +1,87 @@
 // netlify/functions/mark.js
 
-function words(s) {
-  return String(s || "")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean).length;
-}
+const ALLOWED_STATIONS = new Set([
+  "blood_transfusion_refusal",
+  "confidentiality_breach",
+  "colleague_error",
+  "dnar_conflict",
+  "capacity_refusal",
+  "breaking_bad_news",
+  "team_conflict",
+  "cultural_refusal",
+  "consent_understanding",
+  "relative_requests_information",
+]);
 
 function json(statusCode, obj) {
   return {
     statusCode,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(obj),
   };
 }
 
-async function callOpenAI({ apiKey, input, max_output_tokens = 2600, timeoutMs = 50000 }) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+// Basic "is this real English sentence(s)?" check.
+// This is intentionally simple: we just want to detect random letters / nonsense.
+function looksLikeGibberish(text) {
+  const t = (text || "").trim();
+  if (!t) return true;
 
-  const resp = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-4.1-mini",
-      input,
-      text: { format: { type: "json_object" } },
-      max_output_tokens,
-    }),
-    signal: controller.signal,
-  });
+  // Too short to be meaningful
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length < 3) return true;
 
-  clearTimeout(timeout);
+  // If it's mostly non-letters (e.g., "asdf123 !!!")
+  const letters = (t.match(/[a-zA-Z]/g) || []).length;
+  if (letters < Math.min(10, t.length * 0.35)) return true;
 
-  const raw = await resp.text();
-  if (!resp.ok) {
-    return { ok: false, status: resp.status, raw };
+  // If it has extremely low vowel ratio (common in keyboard spam)
+  const vowels = (t.match(/[aeiouAEIOU]/g) || []).length;
+  if (letters > 0 && vowels / letters < 0.18) return true;
+
+  return false;
+}
+
+function validateModelShape(parsed) {
+  // Required shape:
+  // {
+  //  scores: {overall, communication, empathy, ethics, insight},
+  //  feedback: { main, followups:{f1,f2,f3} },
+  //  models: { bullets:{main,f1,f2,f3}, full:{main,f1,f2,f3} }
+  // }
+
+  const okObj = (x) => x && typeof x === "object" && !Array.isArray(x);
+
+  if (!okObj(parsed)) return "Top-level output is not an object.";
+
+  if (!okObj(parsed.scores)) return "Missing scores object.";
+  for (const k of ["overall", "communication", "empathy", "ethics", "insight"]) {
+    if (!(k in parsed.scores)) return `Missing scores.${k}`;
   }
 
-  let data;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    return { ok: false, status: 500, raw: "OpenAI returned non-JSON HTTP body." };
+  if (!okObj(parsed.feedback)) return "Missing feedback object.";
+  if (typeof parsed.feedback.main !== "string") return "feedback.main must be a string.";
+  if (!okObj(parsed.feedback.followups)) return "feedback.followups missing.";
+  for (const k of ["f1", "f2", "f3"]) {
+    if (typeof parsed.feedback.followups[k] !== "string") return `feedback.followups.${k} must be a string.`;
   }
 
-  const outText =
-    data?.output?.[0]?.content?.find((c) => c.type === "output_text")?.text || "";
-
-  let parsed;
-  try {
-    parsed = JSON.parse(outText);
-  } catch {
-    return { ok: false, status: 500, raw: outText.slice(0, 1400) };
+  if (!okObj(parsed.models)) return "Missing models object.";
+  if (!okObj(parsed.models.bullets)) return "models.bullets missing.";
+  if (!okObj(parsed.models.full)) return "models.full missing.";
+  for (const group of ["bullets", "full"]) {
+    for (const k of ["main", "f1", "f2", "f3"]) {
+      if (typeof parsed.models[group][k] !== "string") return `models.${group}.${k} must be a string.`;
+    }
   }
 
-  return { ok: true, parsed };
+  return null;
 }
 
 exports.handler = async (event) => {
   try {
-    if (event.httpMethod === "OPTIONS") {
-      return {
-        statusCode: 204,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
-        },
-        body: "",
-      };
-    }
-
     if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: "Method Not Allowed" };
+      return json(405, { error: "Method Not Allowed" });
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
@@ -89,21 +91,33 @@ exports.handler = async (event) => {
       });
     }
 
-    const body = JSON.parse(event.body || "{}");
+    let body;
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch (e) {
+      return json(400, { error: "Invalid JSON in request body." });
+    }
+
     const { stationId, stationTitle, prompts, answers, name } = body || {};
 
     if (!stationId) return json(400, { error: "stationId missing" });
+    if (!ALLOWED_STATIONS.has(stationId)) {
+      return json(400, { error: `Invalid stationId: ${stationId}` });
+    }
     if (!prompts || !prompts.main) return json(400, { error: "prompts missing" });
-    if (!answers || !String(answers.main || "").trim())
-      return json(400, { error: "Main answer is required." });
 
-    // ----------------------------
-    // CALL 1: full grading + models
-    // ----------------------------
-    const input1 = `
+    const mainAns = String(answers?.main || "").trim();
+    if (!mainAns) return json(400, { error: "Main answer is required." });
+
+    // Optional: score low if gibberish, but still return a full structured response.
+    // We'll tell the model to handle it, BUT this is a guard for obviously empty/garbage.
+    const mainIsGib = looksLikeGibberish(mainAns);
+
+    // --- PROMPT ---
+    const input = `
 You are a strict UK medical school MMI examiner.
 
-Return ONLY valid JSON (no markdown, no extra commentary).
+Return ONLY valid JSON. No markdown. No commentary. No backticks.
 
 Station ID: ${stationId}
 Station Title: ${stationTitle || ""}
@@ -117,40 +131,19 @@ F3: ${prompts.f3 || ""}
 STUDENT NAME (optional): ${name || ""}
 
 ANSWERS:
-Main: ${answers.main}
-F1: ${answers.f1 || ""}
-F2: ${answers.f2 || ""}
-F3: ${answers.f3 || ""}
+Main: ${mainAns}
+F1: ${String(answers?.f1 || "")}
+F2: ${String(answers?.f2 || "")}
+F3: ${String(answers?.f3 || "")}
 
-Scoring rules:
-- If any answer is nonsense / too short (e.g., random letters), score low (0–2/10) and explain why.
-- Use realistic UK MMI scoring, not generous.
-- Scores are out of 10 for: overall, communication, empathy, ethics, insight.
-
-Feedback rules:
-- Give feedback separately for MAIN and each FOLLOW-UP (f1, f2, f3).
-- Feedback should be specific: what was good, what was missing, and how to improve.
-
-Model answers:
-- Provide model answers separately for MAIN and each FOLLOW-UP.
-- BULLETS must be structured and scannable using exactly these headings (each on its own line):
-Opening line:
-Key steps:
-Safety / escalation:
-Legal / ethical / GMC:
-Close / safety-net:
-
-- FULL answers must be USER-FRIENDLY:
-  - No headings inside the paragraph.
-  - Max 2 paragraphs.
-  - Natural signposting is fine (First… Then… Finally…), but keep it flowing.
-
-Length targets:
-- MAIN full: 300–450 words.
-- Each FOLLOW-UP full: 180–260 words.
-- Bullets: concise but complete.
+Rules:
+- If answers are nonsense/too short (e.g., random letters), score low (0–2/10) and explain why.
+- Provide feedback separately for MAIN and each FOLLOW-UP.
+- Provide model answers separately for MAIN and each FOLLOW-UP in BOTH bullets and full.
+- Full model answers should be written as natural paragraphs (no "Opening:", "Explain:", "Safety-net:" labels inside the paragraph).
 
 Return JSON in this exact shape:
+
 {
   "scores": { "overall": 0, "communication": 0, "empathy": 0, "ethics": 0, "insight": 0 },
   "feedback": {
@@ -162,100 +155,82 @@ Return JSON in this exact shape:
     "full": { "main": "string", "f1": "string", "f2": "string", "f3": "string" }
   }
 }
+
+${mainIsGib ? "IMPORTANT: The MAIN answer is gibberish/too short. Scores must be 0–2/10 and feedback must explicitly explain why." : ""}
 `.trim();
 
-    const r1 = await callOpenAI({
-      apiKey,
-      input: input1,
-      max_output_tokens: 3200, // more room for longer models
-      timeoutMs: 50000,
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
+
+    // --- CALL OPENAI RESPONSES API ---
+    const resp = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        // ✅ pinned model (use this)
+        model: "gpt-4.1-mini-2024-07-18",
+        input,
+        // ✅ reduce timeouts / token explosions
+        max_output_tokens: 1200,
+        // ✅ correct replacement for old response_format
+        text: { format: { type: "json_object" } },
+      }),
+      signal: controller.signal,
     });
 
-    if (!r1.ok) {
-      return json(r1.status, {
-        error: `OpenAI request failed (${r1.status})`,
-        details: String(r1.raw || "").slice(0, 1400),
+    clearTimeout(timeout);
+
+    const raw = await resp.text();
+
+    if (!resp.ok) {
+      return json(resp.status, {
+        error: `OpenAI request failed (${resp.status})`,
+        details: raw.slice(0, 900),
       });
     }
 
-    let result = r1.parsed;
-
-    // ----------------------------
-    // ENFORCEMENT: if models are too short -> CALL 2 expand only models.full
-    // ----------------------------
-    const minMain = 260; // hard minimum
-    const minFU = 140;   // hard minimum
-
-    const full = result?.models?.full || {};
-    const needExpand =
-      words(full.main) < minMain ||
-      words(full.f1) < minFU ||
-      words(full.f2) < minFU ||
-      words(full.f3) < minFU;
-
-    if (needExpand) {
-      const input2 = `
-You are improving ONLY the model FULL answers for a UK medical school MMI.
-
-You MUST return ONLY valid JSON.
-
-You will be given the station prompts and your current draft model FULL answers.
-Rewrite them to meet minimum word counts and quality:
-
-Requirements for FULL answers:
-- USER-FRIENDLY paragraphs (no headings like "Opening / Explain / Safety-net").
-- Max 2 paragraphs per answer.
-- Natural signposting is fine.
-- Make them "rigid" UK MMI standard: practical actions, escalation, documentation, GMC/ethics where relevant.
-- KEEP content aligned to the prompt.
-
-Minimum lengths:
-- MAIN full: at least ${minMain} words.
-- Each FOLLOW-UP full: at least ${minFU} words.
-
-PROMPTS:
-Main: ${prompts.main}
-F1: ${prompts.f1 || ""}
-F2: ${prompts.f2 || ""}
-F3: ${prompts.f3 || ""}
-
-CURRENT FULL (rewrite these longer + better):
-Main: ${full.main || ""}
-F1: ${full.f1 || ""}
-F2: ${full.f2 || ""}
-F3: ${full.f3 || ""}
-
-Return JSON in this exact shape:
-{
-  "full": { "main": "string", "f1": "string", "f2": "string", "f3": "string" }
-}
-`.trim();
-
-      const r2 = await callOpenAI({
-        apiKey,
-        input: input2,
-        max_output_tokens: 2600,
-        timeoutMs: 50000,
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      return json(500, {
+        error: "OpenAI returned non-JSON envelope unexpectedly.",
+        details: raw.slice(0, 900),
       });
-
-      if (r2.ok && r2.parsed?.full) {
-        // merge expanded full answers back in
-        result.models = result.models || {};
-        result.models.full = {
-          main: r2.parsed.full.main || result.models.full?.main || "",
-          f1: r2.parsed.full.f1 || result.models.full?.f1 || "",
-          f2: r2.parsed.full.f2 || result.models.full?.f2 || "",
-          f3: r2.parsed.full.f3 || result.models.full?.f3 || "",
-        };
-      }
     }
 
-    return json(200, result);
+    // Extract the output_text safely
+    const outText =
+      data?.output?.[0]?.content?.find((c) => c.type === "output_text")?.text || "";
+
+    let parsed;
+    try {
+      parsed = JSON.parse(outText);
+    } catch (e) {
+      return json(500, {
+        error: "Model returned non-JSON output unexpectedly.",
+        details: outText.slice(0, 900),
+      });
+    }
+
+    const shapeErr = validateModelShape(parsed);
+    if (shapeErr) {
+      return json(500, {
+        error: "Unexpected response shape from function.",
+        details: shapeErr,
+        sample: JSON.stringify(parsed).slice(0, 900),
+      });
+    }
+
+    return json(200, parsed);
   } catch (err) {
     const msg =
       err?.name === "AbortError"
-        ? "Request timed out (server abort). Try again — if it keeps happening, we’ll reduce output slightly."
-        : err?.message || "Unknown server error";
+        ? "Request timed out (server abort). Try again."
+        : (err?.message || "Unknown server error");
 
     return json(500, { error: msg });
   }
