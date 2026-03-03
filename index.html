@@ -13,12 +13,52 @@
     color:#e5e7eb;
   }
   .container{ max-width:1100px; margin:auto; padding:40px 20px 60px; }
-  .header{ text-align:center; margin-bottom:30px; }
+  .header{ text-align:center; margin-bottom:22px; }
   .logo{ width:200px; margin-bottom:12px; }
   h1{ margin:0; font-size:30px; font-weight:800; }
   .sub{ color:#94a3b8; margin-top:10px; font-size:14px; }
 
-  .section-title{ margin-top:30px; font-size:18px; font-weight:700; }
+  .overall{
+    margin: 18px auto 8px;
+    max-width: 760px;
+    background:#0b1220;
+    border:1px solid rgba(148,163,184,.18);
+    border-radius:14px;
+    padding:14px 14px 12px;
+    text-align:left;
+  }
+  .overallTop{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:10px;
+  }
+  .overallTitle{
+    font-weight:800;
+    font-size:14px;
+  }
+  .overallMeta{
+    color:#94a3b8;
+    font-size:12px;
+    white-space:nowrap;
+  }
+  .bar{
+    width:100%;
+    height:10px;
+    background:rgba(148,163,184,.16);
+    border-radius:999px;
+    overflow:hidden;
+  }
+  .bar > div{
+    height:100%;
+    width:0%;
+    background:#6366f1;
+    border-radius:999px;
+    transition: width .2s ease;
+  }
+
+  .section-title{ margin-top:26px; font-size:18px; font-weight:700; }
   .section-sub{ color:#94a3b8; font-size:13px; margin-bottom:20px; }
 
   .grid{
@@ -33,17 +73,67 @@
     padding:16px;
     cursor:pointer;
     transition:.15s;
+    position:relative;
   }
   .card:hover{ border-color:#6366f1; transform:translateY(-2px); }
-  .card-title{ font-weight:700; font-size:15px; margin-bottom:6px; }
+
+  .card-title{
+    font-weight:700;
+    font-size:15px;
+    margin-bottom:6px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+  }
   .tag{
     font-size:11px;
     background:rgba(99,102,241,.12);
     border:1px solid rgba(99,102,241,.4);
     padding:2px 6px;
     border-radius:999px;
-    margin-left:6px;
   }
+
+  .status{
+    margin-left:auto;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .badge{
+    font-size:11px;
+    padding:3px 8px;
+    border-radius:999px;
+    border:1px solid rgba(148,163,184,.25);
+    color:#cbd5e1;
+    background:rgba(15,23,42,.35);
+    white-space:nowrap;
+  }
+  .badge.done{
+    border-color: rgba(34,197,94,.35);
+    background: rgba(34,197,94,.10);
+    color:#bbf7d0;
+  }
+  .badge.progress{
+    border-color: rgba(56,189,248,.30);
+    background: rgba(56,189,248,.10);
+    color:#bae6fd;
+  }
+
+  .miniBar{
+    width:90px;
+    height:8px;
+    border-radius:999px;
+    background:rgba(148,163,184,.16);
+    overflow:hidden;
+    border:1px solid rgba(148,163,184,.12);
+  }
+  .miniBar > div{
+    height:100%;
+    width:0%;
+    background:#6366f1;
+  }
+
   .card-desc{ font-size:13px; color:#cbd5f5; margin-bottom:10px; }
   .pills{ display:flex; gap:6px; flex-wrap:wrap; }
   .pill{
@@ -65,6 +155,14 @@
     <div class="sub">
       Practise realistic UK medical school MMI stations with structured prompts, AI scoring, and high-yield model answers.
     </div>
+
+    <div class="overall">
+      <div class="overallTop">
+        <div class="overallTitle">Your progress</div>
+        <div class="overallMeta" id="overallMeta">0/10 completed • 0%</div>
+      </div>
+      <div class="bar"><div id="overallBar"></div></div>
+    </div>
   </div>
 
   <div class="section-title">Choose a station</div>
@@ -73,62 +171,122 @@
   </div>
 
   <div class="grid">
-    <div class="card" onclick="openStation('blood_transfusion_refusal')">
-      <div class="card-title">Refusal of life-saving blood transfusion <span class="tag">Ethics</span></div>
+    <div class="card" data-station="blood_transfusion_refusal" onclick="openStation('blood_transfusion_refusal')">
+      <div class="card-title">
+        Refusal of life-saving blood transfusion <span class="tag">Ethics</span>
+        <span class="status">
+          <span class="badge" data-badge></span>
+          <span class="miniBar"><div data-minibar></div></span>
+        </span>
+      </div>
       <div class="card-desc">Autonomy vs beneficence, Mental Capacity Act, informed refusal, escalation, documentation.</div>
       <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
     </div>
 
-    <div class="card" onclick="openStation('confidentiality_breach')">
-      <div class="card-title">Confidentiality breach in a public area <span class="tag">Professionalism</span></div>
+    <div class="card" data-station="confidentiality_breach" onclick="openStation('confidentiality_breach')">
+      <div class="card-title">
+        Confidentiality breach in a public area <span class="tag">Professionalism</span>
+        <span class="status">
+          <span class="badge" data-badge></span>
+          <span class="miniBar"><div data-minibar></div></span>
+        </span>
+      </div>
       <div class="card-desc">Challenging a colleague, confidentiality, escalation pathways, reflection/learning.</div>
       <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
     </div>
 
-    <div class="card" onclick="openStation('colleague_error')">
-      <div class="card-title">Medication prescribing error noticed <span class="tag">Patient safety</span></div>
+    <div class="card" data-station="colleague_error" onclick="openStation('colleague_error')">
+      <div class="card-title">
+        Medication prescribing error noticed <span class="tag">Patient safety</span>
+        <span class="status">
+          <span class="badge" data-badge></span>
+          <span class="miniBar"><div data-minibar></div></span>
+        </span>
+      </div>
       <div class="card-desc">Speaking up, hierarchy, preventing harm, duty of candour, team communication.</div>
       <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
     </div>
 
-    <div class="card" onclick="openStation('dnar_conflict')">
-      <div class="card-title">DNACPR disagreement with family <span class="tag">Ethics</span></div>
+    <div class="card" data-station="dnar_conflict" onclick="openStation('dnar_conflict')">
+      <div class="card-title">
+        DNACPR disagreement with family <span class="tag">Ethics</span>
+        <span class="status">
+          <span class="badge" data-badge></span>
+          <span class="miniBar"><div data-minibar></div></span>
+        </span>
+      </div>
       <div class="card-desc">End-of-life communication, DNACPR scope, best-interests reasoning, compassion.</div>
       <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
     </div>
 
-    <div class="card" onclick="openStation('capacity_refusal')">
-      <div class="card-title">Refusal of recommended treatment <span class="tag">Capacity</span></div>
+    <div class="card" data-station="capacity_refusal" onclick="openStation('capacity_refusal')">
+      <div class="card-title">
+        Refusal of recommended treatment <span class="tag">Capacity</span>
+        <span class="status">
+          <span class="badge" data-badge></span>
+          <span class="miniBar"><div data-minibar></div></span>
+        </span>
+      </div>
       <div class="card-desc">Capacity assessment, shared decision-making, respecting refusal, safety-netting.</div>
       <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
     </div>
 
-    <div class="card" onclick="openStation('breaking_bad_news')">
-      <div class="card-title">Breaking bad news: new cancer diagnosis <span class="tag">Communication</span></div>
+    <div class="card" data-station="breaking_bad_news" onclick="openStation('breaking_bad_news')">
+      <div class="card-title">
+        Breaking bad news: new cancer diagnosis <span class="tag">Communication</span>
+        <span class="status">
+          <span class="badge" data-badge></span>
+          <span class="miniBar"><div data-minibar></div></span>
+        </span>
+      </div>
       <div class="card-desc">SPIKES structure, empathy, checking understanding, responding to emotion, next steps.</div>
       <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
     </div>
 
-    <div class="card" onclick="openStation('team_conflict')">
-      <div class="card-title">Team conflict affecting patient care <span class="tag">Teamwork</span></div>
+    <div class="card" data-station="team_conflict" onclick="openStation('team_conflict')">
+      <div class="card-title">
+        Team conflict affecting patient care <span class="tag">Teamwork</span>
+        <span class="status">
+          <span class="badge" data-badge></span>
+          <span class="miniBar"><div data-minibar></div></span>
+        </span>
+      </div>
       <div class="card-desc">Managing disagreement, professionalism, escalation, protecting patient safety.</div>
       <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
     </div>
 
-    <div class="card" onclick="openStation('cultural_refusal')">
-      <div class="card-title">Treatment refusal due to cultural/religious beliefs <span class="tag">Ethics</span></div>
+    <div class="card" data-station="cultural_refusal" onclick="openStation('cultural_refusal')">
+      <div class="card-title">
+        Treatment refusal due to cultural/religious beliefs <span class="tag">Ethics</span>
+        <span class="status">
+          <span class="badge" data-badge></span>
+          <span class="miniBar"><div data-minibar></div></span>
+        </span>
+      </div>
       <div class="card-desc">Cultural sensitivity, exploring beliefs, shared decisions, interpreter/chaplaincy support.</div>
       <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
     </div>
 
-    <div class="card" onclick="openStation('consent_understanding')">
-      <div class="card-title">Patient lacks understanding during consent <span class="tag">Ethics</span></div>
+    <div class="card" data-station="consent_understanding" onclick="openStation('consent_understanding')">
+      <div class="card-title">
+        Patient lacks understanding during consent <span class="tag">Ethics</span>
+        <span class="status">
+          <span class="badge" data-badge></span>
+          <span class="miniBar"><div data-minibar></div></span>
+        </span>
+      </div>
       <div class="card-desc">Assessing understanding, explaining risks/benefits, ensuring informed consent.</div>
       <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
     </div>
 
-    <div class="card" onclick="openStation('relative_requests_information')">
-      <div class="card-title">Relative requests patient information <span class="tag">Confidentiality</span></div>
+    <div class="card" data-station="relative_requests_information" onclick="openStation('relative_requests_information')">
+      <div class="card-title">
+        Relative requests patient information <span class="tag">Confidentiality</span>
+        <span class="status">
+          <span class="badge" data-badge></span>
+          <span class="miniBar"><div data-minibar></div></span>
+        </span>
+      </div>
       <div class="card-desc">Confidentiality, consent to share information, capacity issues, managing relatives.</div>
       <div class="pills"><div class="pill">Reading: 2m</div><div class="pill">Response: 6m</div><div class="pill">Follow-ups: 2m</div></div>
     </div>
@@ -139,6 +297,88 @@
 function openStation(id){
   window.location.href = "station.html?station=" + encodeURIComponent(id);
 }
+
+/**
+ * Progress sources supported:
+ * 1) Per station keys:
+ *    mv_<id>_progress = "0-100"
+ *    mv_<id>_completed = "1" or "true"
+ * 2) Single JSON:
+ *    mv_progress = {"id":{"progress":50,"completed":false}, ...}
+ */
+function getStationProgress(id){
+  // JSON blob
+  try{
+    const blob = localStorage.getItem("mv_progress");
+    if(blob){
+      const obj = JSON.parse(blob);
+      if(obj && obj[id]){
+        const p = Number(obj[id].progress);
+        const c = !!obj[id].completed;
+        return { progress: clampPct(p), completed: c };
+      }
+    }
+  }catch{}
+
+  // Per-key
+  const pRaw = localStorage.getItem(`mv_${id}_progress`);
+  const cRaw = localStorage.getItem(`mv_${id}_completed`);
+
+  const progress = clampPct(Number(pRaw));
+  const completed = (cRaw === "1" || cRaw === "true" || progress >= 100);
+
+  return { progress, completed };
+}
+
+function clampPct(n){
+  if(!Number.isFinite(n)) return 0;
+  if(n < 0) return 0;
+  if(n > 100) return 100;
+  return Math.round(n);
+}
+
+function paintProgress(){
+  const cards = document.querySelectorAll(".card[data-station]");
+  const ids = [];
+  let completedCount = 0;
+  let sum = 0;
+
+  cards.forEach(card => {
+    const id = card.getAttribute("data-station");
+    ids.push(id);
+
+    const { progress, completed } = getStationProgress(id);
+    sum += progress;
+    if(completed) completedCount++;
+
+    const badge = card.querySelector("[data-badge]");
+    const bar = card.querySelector("[data-minibar]");
+
+    if(bar) bar.style.width = progress + "%";
+
+    if(badge){
+      badge.classList.remove("done","progress");
+      if(completed){
+        badge.textContent = "Completed";
+        badge.classList.add("done");
+      }else if(progress > 0){
+        badge.textContent = `In progress • ${progress}%`;
+        badge.classList.add("progress");
+      }else{
+        badge.textContent = "Not started";
+      }
+    }
+  });
+
+  const overallPct = ids.length ? Math.round(sum / ids.length) : 0;
+  const meta = document.getElementById("overallMeta");
+  const overallBar = document.getElementById("overallBar");
+  if(meta) meta.textContent = `${completedCount}/${ids.length} completed • ${overallPct}%`;
+  if(overallBar) overallBar.style.width = overallPct + "%";
+}
+
+paintProgress();
+window.addEventListener("storage", paintProgress);
 </script>
 
 </body>
