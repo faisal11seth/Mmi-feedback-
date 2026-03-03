@@ -1,0 +1,124 @@
+{
+  "stationId": "blood_transfusion_refusal",
+  "rubric": {
+    "main": [
+      "Respect autonomy; non-judgemental approach",
+      "Assess capacity (MCA 2005) and informed refusal",
+      "Explain risks/benefits/alternatives; check understanding",
+      "Explore beliefs/values and what products/components are acceptable",
+      "Escalate appropriately (senior/haematology/anaesthetics/ethics as needed)",
+      "Document clearly; safety-net; duty of candour if relevant"
+    ],
+    "f1": [
+      "If lacks capacity: best interests decision under MCA",
+      "Check for ADRT / LPA / prior expressed wishes",
+      "Involve MDT and family appropriately; least restrictive option",
+      "Consider urgency, legal/CoP if dispute or high-stakes uncertainty",
+      "Document reasoning and decisions"
+    ],
+    "f2": [
+      "Involve MDT (haem/anaes/surgeons/nursing/chaplaincy/ethics/legal)",
+      "Confidentiality: share only necessary info; consent where possible",
+      "If capacity present: family involvement only with consent",
+      "If lacks capacity: family input is about values/wishes, not 'deciding'",
+      "Clear communication and documentation"
+    ],
+    "f3": [
+      "Discuss clinically appropriate alternatives: iron, EPO, tranexamic acid, cell salvage, minimising blood loss, volume expanders etc.",
+      "Clarify what is acceptable to patient (some accept fractions/components)",
+      "Shared decision-making; explain limitations and risks",
+      "Plan peri-op/bleeding management; escalate early",
+      "Document preferences clearly"
+    ]
+  },
+  "exemplars": {
+    "main": [
+      {
+        "band": "excellent",
+        "score_hint": 9,
+        "answer": "First, I’d stay calm, respectful and non-judgemental, because the starting point is that a competent adult has the right to refuse treatment, even if that refusal increases the risk of serious harm or death. I’d make sure the patient is clinically stable and address any immediate life-threats that don’t involve blood products, while arranging privacy so the discussion isn’t rushed or pressured.\n\nI would then assess capacity specifically for this decision using the Mental Capacity Act principles: can the patient understand what a transfusion is and why it’s being recommended, retain that information long enough to decide, weigh the information including the consequences of refusal, and communicate a clear choice. I’d also check for factors that can temporarily impair capacity—pain, hypoxia, shock, delirium, intoxication—and treat those where possible.\n\nIf they have capacity, I’d ensure the refusal is informed. I’d explain the benefits of transfusion in their situation, the material risks of refusing (including likely outcomes), and the uncertainties. I’d ask the patient to summarise back their understanding, and explore their reasons—often this is religious belief, but I wouldn’t assume; I’d ask what matters to them and what, if anything, they would accept. For example, some patients refuse whole blood but may accept certain fractions or procedures like cell salvage; others do not. I’d clarify exactly which products are unacceptable so we can tailor a plan.\n\nNext, I’d discuss alternatives and supportive options: optimising haemoglobin with iron and/or erythropoietin where appropriate, minimising blood loss, use of tranexamic acid, careful surgical/anaesthetic planning, volume expansion, and early senior input. I would involve the relevant MDT early—senior clinician, haematology, anaesthetics/surgery depending on context—and consider chaplaincy or a liaison service if the patient would find that supportive, always with the patient’s consent.\n\nFinally, I’d document the conversation thoroughly: capacity assessment, information given, the patient’s decision and specific boundaries about blood products, and the agreed management plan. I’d ensure the team looking after the patient is aware of the plan, and I’d safety-net by explaining what symptoms or deterioration to report urgently, and that we can revisit the decision at any time if the patient changes their mind."
+      },
+      {
+        "band": "good",
+        "score_hint": 7,
+        "answer": "I’d approach the patient respectfully and make sure the conversation happens in a private, calm setting. I’d acknowledge their beliefs and reassure them that my aim is to support them and keep them safe, not to judge them.\n\nI’d assess capacity for refusing transfusion by checking they understand what the transfusion is for, the risks of not having it, and that they can weigh that information and communicate a consistent decision. If anything reversible might be affecting their thinking—pain, confusion, severe breathlessness—I’d try to address that first.\n\nAssuming they have capacity, I’d explain clearly why the transfusion is recommended and the likely consequences of refusing, then explore what specifically they object to and whether they would accept any alternatives. I’d discuss options such as iron therapy, medications to reduce bleeding, and involving seniors early. I’d also consider getting haematology/anaesthetics input depending on the scenario.\n\nI’d document the discussion, the patient’s capacity and their decision, and ensure the team knows the plan, with appropriate safety-netting and the option to revisit the decision if they change their mind."
+      },
+      {
+        "band": "borderline",
+        "score_hint": 5,
+        "answer": "I’d respect the patient’s religious beliefs and try to persuade them gently that the transfusion is important. I’d explain that without it they could become very unwell or die. I’d check they understand what I’m saying and ask if they’re sure.\n\nIf they still refuse, I’d look for other treatments like iron and ask a senior doctor for advice. I’d write in the notes that they refused and tell the team."
+      },
+      {
+        "band": "poor",
+        "score_hint": 2,
+        "answer": "I’d tell them they need the transfusion and if they refuse it’s their fault. I’d just document it and move on."
+      }
+    ],
+    "f1": [
+      {
+        "band": "excellent",
+        "score_hint": 9,
+        "answer": "If the patient lacks capacity for this decision, I would move to a best interests decision under the Mental Capacity Act. First I’d treat reversible causes of incapacity where possible and reassess, because capacity can fluctuate.\n\nThen I’d check for any legally relevant prior wishes: an Advance Decision to Refuse Treatment (ADRT) that specifically covers blood products and is valid and applicable; and whether there is a Lasting Power of Attorney (health and welfare) who has authority for this decision. I’d also review the notes for previously documented discussions and preferences.\n\nIn making a best interests decision, I’d involve the MDT and those close to the patient to understand the patient’s values, beliefs and prior expressed wishes. The family’s role here is to inform us about what the patient would have wanted, not to demand a particular treatment.\n\nIf there is significant dispute, uncertainty about the validity/applicability of an ADRT, or a major high-stakes decision, I would escalate early to senior clinicians and seek legal/ethics advice; if needed, the Court of Protection may be involved. Throughout, I’d choose the least restrictive option consistent with best interests and document the reasoning, the people consulted, and the final decision clearly."
+      },
+      {
+        "band": "good",
+        "score_hint": 7,
+        "answer": "If the patient didn’t have capacity, I’d follow the Mental Capacity Act and make a best interests decision. I’d treat any reversible causes and reassess capacity, then check for any ADRT or LPA.\n\nI’d involve senior clinicians and the MDT, and speak with family to understand the patient’s values and previously expressed wishes. If there was disagreement or uncertainty, I’d escalate for senior and possibly legal/ethics input. I’d document the capacity assessment and best interests reasoning clearly."
+      },
+      {
+        "band": "borderline",
+        "score_hint": 5,
+        "answer": "If they lack capacity I’d ask the family what to do and get a senior involved. I’d try alternatives and document it."
+      },
+      {
+        "band": "poor",
+        "score_hint": 2,
+        "answer": "If they can’t decide, I’d just give the transfusion anyway without checking anything."
+      }
+    ],
+    "f2": [
+      {
+        "band": "excellent",
+        "score_hint": 9,
+        "answer": "I’d involve the MDT early because these cases are complex and time-sensitive: senior clinician in charge, haematology for blood management strategies, anaesthetics/surgery if relevant, and specialist nursing. If the patient wants it, I’d offer chaplaincy or a liaison service for religious support, and I’d consider ethics or legal input where there’s conflict or uncertainty.\n\nOn confidentiality: if the patient has capacity, I would only involve family with the patient’s consent, and I’d clarify what the patient is happy for us to share. I’d explain to family that I can’t discuss details without permission, but I can still listen to their concerns and provide general information.\n\nIf the patient lacks capacity, I can share relevant information with family insofar as it helps determine the patient’s wishes, feelings, beliefs and values and supports a best interests decision. Even then I would share only what’s necessary and proportionate. I’d document who was involved, what was shared, and how family input informed the plan."
+      },
+      {
+        "band": "good",
+        "score_hint": 7,
+        "answer": "I’d involve seniors and the MDT such as haematology and anaesthetics depending on the context, and escalate early if needed. If the patient has capacity, I’d only involve family with their consent and agree what information can be shared.\n\nIf they lack capacity, I’d speak to family to understand values and preferences and share only relevant information. I’d document discussions and the plan clearly."
+      },
+      {
+        "band": "borderline",
+        "score_hint": 5,
+        "answer": "I’d get a senior and maybe haematology involved. I’d talk to family to help decide but try not to break confidentiality."
+      },
+      {
+        "band": "poor",
+        "score_hint": 2,
+        "answer": "I’d tell the family everything and let them decide."
+      }
+    ],
+    "f3": [
+      {
+        "band": "excellent",
+        "score_hint": 9,
+        "answer": "I’d discuss alternatives based on the clinical situation and what the patient considers acceptable. I’d start by asking what exactly they refuse—whole blood, components, fractions—and whether there are any interventions they would consider. That matters because beliefs vary and we need an individualised plan.\n\nClinically, alternatives may include optimising haemoglobin with iron (oral or IV) and/or erythropoietin if appropriate, using tranexamic acid or other measures to reduce bleeding where indicated, meticulous haemostasis and minimising blood draws, and supportive care such as volume expanders. In surgical contexts, techniques like cell salvage or acute normovolaemic haemodilution may be options depending on patient preference and local practice.\n\nI’d explain the benefits and limitations honestly: alternatives may reduce risk but might not fully replace transfusion in severe haemorrhage, so the patient understands the residual risk. I’d involve haematology and the relevant senior team early to agree a clear blood management plan, document the patient’s preferences precisely, and ensure the whole team is aware to avoid accidental administration of refused products."
+      },
+      {
+        "band": "good",
+        "score_hint": 7,
+        "answer": "I’d explore what the patient will and won’t accept and then discuss alternatives such as iron therapy, erythropoietin if appropriate, measures to reduce bleeding like tranexamic acid, and careful planning to minimise blood loss. In surgical cases I’d consider options like cell salvage depending on patient preference.\n\nI’d explain that alternatives may not remove all risk and make sure the patient understands the limitations. I’d involve seniors/haematology early and document preferences clearly."
+      },
+      {
+        "band": "borderline",
+        "score_hint": 5,
+        "answer": "I’d offer iron and other treatments instead of blood and tell them it might not work as well. I’d get haematology involved."
+      },
+      {
+        "band": "poor",
+        "score_hint": 2,
+        "answer": "There aren’t really alternatives, so they just have to accept the transfusion."
+      }
+    ]
+  }
+}

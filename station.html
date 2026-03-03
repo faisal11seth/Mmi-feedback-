@@ -1,154 +1,40 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>MedVault Station</title>
-
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MMI Station</title>
   <style>
     :root{
-      --bg:#0b1220;
-      --panel:#0f172a;
-      --border:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#6366f1;
-      --danger:#fb7185;
+      --bg:#0b1020; --card:#121a33; --muted:#a9b3d6; --text:#e9eeff; --accent:#7c6cff;
+      --border:rgba(255,255,255,.08); --bad:#ff6b6b;
     }
-    *{ box-sizing:border-box; }
-    body{
-      margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      background:
-        radial-gradient(1200px 700px at 50% 0%, rgba(99,102,241,.22), transparent 60%),
-        radial-gradient(900px 600px at 0% 30%, rgba(56,189,248,.12), transparent 55%),
-        radial-gradient(900px 600px at 100% 35%, rgba(168,85,247,.10), transparent 55%),
-        var(--bg);
-      color:var(--text);
-    }
-    .container{
-      max-width:1100px;
-      margin:0 auto;
-      padding:22px 16px 46px;
-    }
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:14px;
-    }
-    .back{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.25);
-      background:rgba(15,23,42,.35);
-      color:var(--text);
-      padding:8px 10px;
-      border-radius:10px;
-      cursor:pointer;
-      font-size:13px;
-    }
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      opacity:.95;
-    }
-    .brand img{
-      width:40px;
-      height:40px;
-      border-radius:10px;
-      object-fit:cover;
-      border:1px solid rgba(148,163,184,.22);
-    }
-    .brand span{
-      font-size:13px;
-      color:var(--muted);
-    }
+    body{ margin:0; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      background:radial-gradient(1100px 800px at 20% 0%, rgba(124,108,255,.25), transparent 60%), var(--bg);
+      color:var(--text); }
+    .wrap{ max-width:1100px; margin:0 auto; padding:18px 16px 70px; }
+    a{ color:var(--accent); }
+    header{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    .back{ text-decoration:none; color:var(--muted); border:1px solid var(--border); padding:8px 10px; border-radius:10px; }
+    .back:hover{ filter:brightness(1.08); }
+    h1{ margin:0; font-size:22px; }
+    .pill{ display:inline-block; font-size:12px; padding:3px 8px; border-radius:999px; border:1px solid var(--border); color:var(--muted); }
 
-    .panel{
-      border:1px solid var(--border);
-      background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
-      border-radius:16px;
-      padding:16px;
-    }
+    .card{ background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:14px; }
+    .label{ color:var(--muted); font-size:13px; margin:0 0 6px; }
+    .q{ font-weight:700; margin:0; line-height:1.35; }
+    .idline{ color:var(--muted); font-size:12px; margin-top:8px; }
 
-    .title{
-      font-size:20px;
-      font-weight:800;
-      margin:0 0 10px;
-      line-height:1.25;
+    textarea,input{
+      width:100%; box-sizing:border-box; border-radius:12px; border:1px solid var(--border);
+      background:rgba(0,0,0,.18); color:var(--text); padding:12px; outline:none;
+      font-family:inherit; font-size:14px; line-height:1.4;
     }
-    .metaRow{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-bottom:12px;
-    }
-    .pill{
-      font-size:11px;
-      border:1px solid rgba(148,163,184,.22);
-      color:#cbd5e1;
-      padding:3px 8px;
-      border-radius:999px;
-      background:rgba(15,23,42,.35);
-    }
+    textarea{ min-height:110px; resize:vertical; }
+    .row{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    @media (max-width: 800px){ .row{ grid-template-columns:1fr; } }
 
-    label{
-      display:block;
-      font-size:12px;
-      color:var(--muted);
-      margin:10px 0 6px;
-    }
-    input, textarea{
-      width:100%;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(15,23,42,.35);
-      color:var(--text);
-      border-radius:12px;
-      padding:10px 12px;
-      font-size:14px;
-      outline:none;
-    }
-    textarea{ min-height:92px; resize:vertical; }
-
-    .qCard{
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.25);
-      border-radius:14px;
-      padding:12px;
-      margin-top:12px;
-    }
-    .qHead{
-      font-size:12px;
-      color:var(--muted);
-      margin-bottom:6px;
-    }
-    .qText{
-      font-size:16px;
-      font-weight:750;
-      line-height:1.3;
-      margin-bottom:10px;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:12px;
-      margin-top:12px;
-    }
-    @media (min-width: 860px){
-      .grid{ grid-template-columns: 1fr 1fr; }
-      .span2{ grid-column: 1 / span 2; }
-    }
-
-    .actions{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-      margin-top:14px;
-    }
     .btn{
       appearance:none;
       border:none;
@@ -322,16 +208,19 @@
     }
   </style>
 </head>
-
 <body>
-  <div class="container">
-    <div class="topbar">
-      <button class="back" onclick="window.location.href='index.html'">← Back</button>
+  <div class="wrap">
+    <header>
+      <a class="back" href="index.html">← Back</a>
+      <span class="pill">MMI Feedback</span>
+    </header>
 
-      <div class="brand">
-        <span>MedVaultUK</span>
-        <img src="logo.png" alt="MedVault logo">
-      </div>
+    <div class="card">
+      <p class="label">Station</p>
+      <h1 id="stationTitle">Loading…</h1>
+      <p class="label" style="margin-top:10px;">Station prompt</p>
+      <p id="qMain" class="q"></p>
+      <div class="idline">ID: <span id="stationIdText"></span></div>
     </div>
 
     <div class="panel">
@@ -393,170 +282,140 @@
       <label for="studentName">Student name</label>
       <input id="studentName" type="text" placeholder="Type your name"/>
 
-      <div class="qCard">
-        <div class="qHead">Main question</div>
-        <div class="qText" id="qMain"></div>
-        <label for="aMain">Your answer (Main)</label>
-        <textarea id="aMain" placeholder="Type your spoken answer to the main question..."></textarea>
-      </div>
+    <div class="card">
+      <p class="label">Your answer (Main)</p>
+      <textarea id="aMain" placeholder="Type your main answer…"></textarea>
 
-      <div class="grid">
-        <div class="qCard">
-          <div class="qHead">Follow-up 1</div>
-          <div class="qText" id="qF1"></div>
-          <label for="aF1">Your answer (Follow-up 1)</label>
-          <textarea id="aF1" placeholder="Answer follow-up 1..."></textarea>
+      <div class="row" style="margin-top:14px;">
+        <div>
+          <p class="label">Follow-up 1</p>
+          <p id="qF1" class="q"></p>
+          <p class="label" style="margin-top:10px;">Your answer (Follow-up 1)</p>
+          <textarea id="aF1" placeholder="Type your follow-up 1…"></textarea>
         </div>
-
-        <div class="qCard">
-          <div class="qHead">Follow-up 2</div>
-          <div class="qText" id="qF2"></div>
-          <label for="aF2">Your answer (Follow-up 2)</label>
-          <textarea id="aF2" placeholder="Answer follow-up 2..."></textarea>
-        </div>
-
-        <div class="qCard span2">
-          <div class="qHead">Follow-up 3</div>
-          <div class="qText" id="qF3"></div>
-          <label for="aF3">Your answer (Follow-up 3)</label>
-          <textarea id="aF3" placeholder="Answer follow-up 3..."></textarea>
+        <div>
+          <p class="label">Follow-up 2</p>
+          <p id="qF2" class="q"></p>
+          <p class="label" style="margin-top:10px;">Your answer (Follow-up 2)</p>
+          <textarea id="aF2" placeholder="Type your follow-up 2…"></textarea>
         </div>
       </div>
 
-      <div class="actions">
-        <button class="btn" id="btn" onclick="generate()">Generate feedback</button>
-        <div class="hint">
-          Tip: write how you’d speak it in a timed MMI (clear + structured). If feedback is slow, try shorter answers.
-        </div>
+      <div style="margin-top:14px;">
+        <p class="label">Follow-up 3</p>
+        <p id="qF3" class="q"></p>
+        <p class="label" style="margin-top:10px;">Your answer (Follow-up 3)</p>
+        <textarea id="aF3" placeholder="Type your follow-up 3…"></textarea>
       </div>
 
-      <div id="err" class="err" style="display:none;"></div>
-      <div id="out" class="result" style="display:none;"></div>
+      <div style="display:flex; gap:12px; align-items:center; margin-top:14px;">
+        <button class="btn" id="btn">Generate feedback</button>
+        <span class="hint">Tip: if feedback is slow, shorten answers.</span>
+      </div>
+
+      <div id="err" class="err" style="margin-top:12px;"></div>
     </div>
+
+    <div id="out" class="card" style="display:none;"></div>
   </div>
 
   <script>
-    // ✅ EXACT SAME stationIds as index.html
-    const STATIONS_META = {
+    // Station bank (must match index.html IDs)
+    const STATIONS = {
       blood_transfusion_refusal: {
-        title:"Refusal of life-saving blood transfusion",
-        prompts:{
-          main:"A patient refuses a life-saving blood transfusion for religious reasons. Discuss how you would approach this situation.",
-          f1:"What would you do if the patient did not have capacity?",
-          f2:"How would you involve the MDT and/or family appropriately (while respecting confidentiality)?",
-          f3:"Can you suggest ethically acceptable alternatives and how you would discuss them?"
+        title: "Refusal of life-saving blood transfusion",
+        prompts: {
+          main: "A patient refuses a life-saving blood transfusion for religious reasons. Discuss how you would approach this situation.",
+          f1: "What would you do if the patient did not have capacity?",
+          f2: "How would you involve the MDT and/or family appropriately (while respecting confidentiality)?",
+          f3: "Can you suggest ethically acceptable alternatives and how you would discuss them?"
         }
       },
       confidentiality_breach: {
-        title:"Confidentiality breach in a public area",
-        prompts:{
-          main:"You overhear a medical student discussing an identifiable patient loudly in a corridor. How do you respond?",
-          f1:"How would you handle it if they become defensive or dismissive?",
-          f2:"What steps would you take if members of the public/other patients overheard?",
-          f3:"What key points would you include in a reflection about this incident?"
-        }
-      },
-      colleague_error: {
-        title:"Medication prescribing error noticed",
-        prompts:{
-          main:"You notice a junior doctor has prescribed a potentially harmful dose of a medication. Talk through exactly what you would do.",
-          f1:"What would you do if the doctor insists the prescription is correct and refuses to change it?",
-          f2:"What would you do if you realise the patient has already received the dose?",
-          f3:"How would you communicate this to the patient (or family) in line with duty of candour?"
-        }
-      },
-      dnar_conflict: {
-        title:"DNACPR disagreement with family",
-        prompts:{
-          main:"A patient has a DNACPR decision documented. The family insist that ‘everything must be done’ and demand CPR. How do you respond?",
-          f1:"How would you explain what DNACPR does and does not mean?",
-          f2:"Who is involved in making DNACPR decisions and what is the family’s role?",
-          f3:"If conflict continues, what escalation and support options would you use?"
+        title: "Confidentiality breach in public",
+        prompts: {
+          main: "You overhear a medical student discussing an identifiable patient loudly in a corridor. What do you do?",
+          f1: "What if the student becomes defensive or dismissive?",
+          f2: "What if a patient or member of the public overheard and is upset?",
+          f3: "What key points would you include in a reflection about this incident?"
         }
       },
       capacity_refusal: {
-        title:"Refusal of recommended treatment",
-        prompts:{
-          main:"A competent adult refuses a recommended treatment that is likely to prevent serious harm. How do you proceed?",
-          f1:"How would you assess capacity in this situation?",
-          f2:"How would you explore reasons and support shared decision-making without coercion?",
-          f3:"What documentation and safety-netting would you put in place?"
+        title: "Capacity + refusal of treatment",
+        prompts: {
+          main: "A patient refuses a recommended treatment that you believe is in their best interests. How do you approach this?",
+          f1: "How do you assess capacity?",
+          f2: "What if family disagrees with the patient's decision?",
+          f3: "What if the patient lacks capacity?"
         }
       },
       breaking_bad_news: {
-        title:"Breaking bad news: new cancer diagnosis",
-        prompts:{
-          main:"You need to tell a patient their tests show a new cancer diagnosis. How would you conduct this conversation?",
-          f1:"How would you structure the conversation (e.g., SPIKES) and check understanding?",
-          f2:"What would you do if the patient says they don’t want details right now?",
-          f3:"What immediate support, next steps, and safety-netting would you offer?"
-        }
-      },
-      team_conflict: {
-        title:"Team conflict affecting patient care",
-        prompts:{
-          main:"Two staff members are arguing during a busy shift and patient care is being affected. What would you do?",
-          f1:"How would you address this in the moment to protect patient safety?",
-          f2:"How would you handle it if one person is senior and dismisses your concerns?",
-          f3:"What follow-up actions would you take after the shift (reflection/learning/escalation)?"
-        }
-      },
-      cultural_refusal: {
-        title:"Treatment refusal due to cultural/religious beliefs",
-        prompts:{
-          main:"A patient refuses an important treatment because of cultural or religious beliefs. How would you approach this?",
-          f1:"How would you ensure your communication is culturally safe and the patient feels respected?",
-          f2:"If refusal risks significant harm, how would you explore alternatives and shared decision-making?",
-          f3:"What would you do to avoid stereotyping or assumptions about the patient’s beliefs?"
+        title: "Breaking bad news",
+        prompts: {
+          main: "You need to tell a patient that their test results show a serious diagnosis. How would you do it?",
+          f1: "What if they become very distressed?",
+          f2: "What support would you offer?",
+          f3: "How would you safety-net and document?"
         }
       },
       consent_understanding: {
-        title:"Patient lacks understanding during consent",
-        prompts:{
-          main:"A patient agrees to a procedure but seems not to understand what it involves. How do you proceed?",
-          f1:"How do you assess whether consent is valid?",
-          f2:"What would you do if they still do not understand after explanation?",
-          f3:"Why is informed consent ethically important?"
+        title: "Informed consent",
+        prompts: {
+          main: "Explain how you would obtain informed consent for a procedure.",
+          f1: "What makes consent valid?",
+          f2: "How do you discuss risks and alternatives?",
+          f3: "Why is informed consent ethically important?"
+        }
+      },
+      cultural_refusal: {
+        title: "Cultural/religious refusal",
+        prompts: {
+          main: "A patient refuses treatment due to cultural or religious beliefs. How would you approach this?",
+          f1: "What if their decision places them at serious risk?",
+          f2: "How would you involve interpreters or advocates?",
+          f3: "How would you ensure the decision is informed and voluntary?"
+        }
+      },
+      team_conflict: {
+        title: "Team conflict",
+        prompts: {
+          main: "Describe how you would manage conflict within a healthcare team.",
+          f1: "What if the conflict affects patient safety?",
+          f2: "What if it involves a senior colleague?",
+          f3: "How would you reflect and learn from it?"
+        }
+      },
+      colleague_error: {
+        title: "Colleague makes an error",
+        prompts: {
+          main: "You suspect a colleague has made a medication error. What do you do?",
+          f1: "How do you prioritise patient safety immediately?",
+          f2: "How do you handle speaking to the colleague?",
+          f3: "What documentation/escalation is appropriate?"
         }
       },
       relative_requests_information: {
-        title:"Relative requests patient information",
-        prompts:{
-          main:"A patient’s relative asks you for details about their condition, but the patient has not given consent to share information. How do you handle this?",
-          f1:"What if the relative insists they have a ‘right to know’?",
-          f2:"When can confidentiality be breached?",
-          f3:"How would you handle this sensitively while maintaining trust?"
+        title: "Relative requests patient info",
+        prompts: {
+          main: "A relative asks you for information about a patient’s condition. How do you respond?",
+          f1: "What if the patient is present and refuses sharing?",
+          f2: "What if the patient lacks capacity?",
+          f3: "How do you balance confidentiality and family involvement?"
         }
       }
     };
 
-    function $(id){ return document.getElementById(id); }
+    const $ = (id) => document.getElementById(id);
 
-    function getStationId(){
-      const p = new URLSearchParams(window.location.search);
-      return p.get("station");
-    }
+    // ✅ Accept BOTH: ?id=... and ?station=...
+    const params = new URLSearchParams(window.location.search);
+    const stationId = (params.get("id") || params.get("station") || "").trim();
 
-    const stationId = getStationId();
-    const station = STATIONS_META[stationId];
-
-    if(!station){
-      $("stationTitle").textContent = "Station not found";
-      $("qMain").textContent = "This station link is invalid. Go back and select a station again.";
-      $("btn").disabled = true;
-    } else {
-      $("stationTitle").textContent = station.title;
-      $("qMain").textContent = station.prompts.main;
-      $("qF1").textContent = station.prompts.f1;
-      $("qF2").textContent = station.prompts.f2;
-      $("qF3").textContent = station.prompts.f3;
-      document.title = "MedVault • " + station.title;
-    }
+    const station = STATIONS[stationId];
 
     function showErr(msg){
-      const e = $("err");
-      e.style.display = "block";
-      e.textContent = "Error:\n" + msg;
+      $("err").style.display = "block";
+      $("err").textContent = "Error:\n" + msg;
       $("out").style.display = "none";
     }
     function clearErr(){
@@ -564,130 +423,169 @@
       $("err").textContent = "";
     }
     function setLoading(on){
-      $("btn").disabled = on;
-      $("btn").textContent = on ? "Generating..." : "Generate feedback";
+      $("btn").disabled = !!on;
+      $("btn").textContent = on ? "Generating…" : "Generate feedback";
+    }
+
+    function textToBulletsHtml(text){
+      const t = String(text || "").trim();
+      if (!t) return "";
+      // Split into lines, treat lines starting with "-" or "•" as bullet items
+      const lines = t.split("\n").map(x => x.trim()).filter(Boolean);
+      const items = lines
+        .map(l => l.replace(/^[-•]\s*/, "").trim())
+        .filter(Boolean);
+
+      // If it's clearly bullet-ish, render UL; otherwise render as paragraph block
+      const bulletish = lines.length >= 2 || /^[-•]\s/.test(lines[0] || "");
+      if (!bulletish) return `<div class="block">${escapeHtml(t)}</div>`;
+
+      return `<ul>${items.map(i => `<li>${escapeHtml(i)}</li>`).join("")}</ul>`;
+    }
+
+    function escapeHtml(s){
+      return String(s || "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
     }
 
     function safeScore(v){
       const n = Number(v);
-      if(Number.isFinite(n)) return n;
-      return 0;
+      return Number.isFinite(n) ? n : 0;
     }
 
     function renderResults(data){
       const out = $("out");
       out.style.display = "block";
 
-      const scores = data.scores || {};
-      const feedback = data.feedback || {};
-      const models = data.models || {};
+      const s = data.scores || {};
+      const fb = data.feedback || {};
+      const m = data.models || {};
+      const fbF = (fb.followups || {});
+      const mMain = (m.main || {});
+      const mF = (m.followups || {});
 
       out.innerHTML = `
         <div class="scores">
-          <div class="score"><b>Overall</b><span>${safeScore(scores.overall)}/10</span></div>
-          <div class="score"><b>Communication</b><span>${safeScore(scores.communication)}/10</span></div>
-          <div class="score"><b>Empathy</b><span>${safeScore(scores.empathy)}/10</span></div>
-          <div class="score"><b>Ethics/Reasoning</b><span>${safeScore(scores.ethics)}/10</span></div>
-          <div class="score"><b>Insight</b><span>${safeScore(scores.insight)}/10</span></div>
+          <div class="score"><div class="k">Overall</div><div class="v">${safeScore(s.overall)}/10</div></div>
+          <div class="score"><div class="k">Communication</div><div class="v">${safeScore(s.communication)}/10</div></div>
+          <div class="score"><div class="k">Empathy</div><div class="v">${safeScore(s.empathy)}/10</div></div>
+          <div class="score"><div class="k">Ethics/Reasoning</div><div class="v">${safeScore(s.ethics)}/10</div></div>
+          <div class="score"><div class="k">Insight</div><div class="v">${safeScore(s.insight)}/10</div></div>
         </div>
 
         <div class="h">Feedback — Main</div>
-        <div class="block">${feedback.main || ""}</div>
+        <div class="block">${escapeHtml(fb.main || "")}</div>
 
         <div class="h">Feedback — Follow-ups</div>
-        <div class="block">
-          <div><b>Follow-up 1:</b>\n${(feedback.followups && feedback.followups.f1) || ""}</div>\n
-          <div style="margin-top:10px;"><b>Follow-up 2:</b>\n${(feedback.followups && feedback.followups.f2) || ""}</div>\n
-          <div style="margin-top:10px;"><b>Follow-up 3:</b>\n${(feedback.followups && feedback.followups.f3) || ""}</div>
-        </div>
+
+        <div class="h" style="font-size:14px; margin-top:10px;">Follow-up 1</div>
+        <div class="block">${escapeHtml(fbF.f1 || "")}</div>
+
+        <div class="h" style="font-size:14px; margin-top:10px;">Follow-up 2</div>
+        <div class="block">${escapeHtml(fbF.f2 || "")}</div>
+
+        <div class="h" style="font-size:14px; margin-top:10px;">Follow-up 3</div>
+        <div class="block">${escapeHtml(fbF.f3 || "")}</div>
+
+        <div class="sep"></div>
 
         <div class="h">Model answer — Main (bullets)</div>
-        <div class="block">${(models.bullets && models.bullets.main) || ""}</div>
+        ${textToBulletsHtml(mMain.bullets || "")}
 
-        <div class="h">Model answer — Main (full)</div>
-        <div class="block">${(models.full && models.full.main) || ""}</div>
+        <div class="h">Model answer — Main</div>
+        <div class="block">${escapeHtml(mMain.full || "")}</div>
 
-        <div class="h">Model answer — Follow-up 1 (bullets)</div>
-        <div class="block">${(models.bullets && models.bullets.f1) || ""}</div>
+        <div class="sep"></div>
 
-        <div class="h">Model answer — Follow-up 1 (full)</div>
-        <div class="block">${(models.full && models.full.f1) || ""}</div>
+        <div class="h">Model answer — Follow-up 1</div>
+        ${textToBulletsHtml(mF.f1 || "")}
 
-        <div class="h">Model answer — Follow-up 2 (bullets)</div>
-        <div class="block">${(models.bullets && models.bullets.f2) || ""}</div>
+        <div class="h">Model answer — Follow-up 2</div>
+        ${textToBulletsHtml(mF.f2 || "")}
 
-        <div class="h">Model answer — Follow-up 2 (full)</div>
-        <div class="block">${(models.full && models.full.f2) || ""}</div>
-
-        <div class="h">Model answer — Follow-up 3 (bullets)</div>
-        <div class="block">${(models.bullets && models.bullets.f3) || ""}</div>
-
-        <div class="h">Model answer — Follow-up 3 (full)</div>
-        <div class="block">${(models.full && models.full.f3) || ""}</div>
+        <div class="h">Model answer — Follow-up 3</div>
+        ${textToBulletsHtml(mF.f3 || "")}
       `;
     }
 
-    async function generate(){
+    // Populate station
+    if (!station) {
+      document.title = "MMI Station";
+      $("stationTitle").textContent = "Station not found";
+      $("qMain").textContent = "This station link is invalid. Go back and select a station again.";
+      $("qF1").textContent = "—";
+      $("qF2").textContent = "—";
+      $("qF3").textContent = "—";
+      $("stationIdText").textContent = stationId ? stationId : "—";
+      $("btn").disabled = true;
+    } else {
+      document.title = "MMI – " + station.title;
+      $("stationTitle").textContent = station.title;
+      $("qMain").textContent = station.prompts.main;
+      $("qF1").textContent = station.prompts.f1;
+      $("qF2").textContent = station.prompts.f2;
+      $("qF3").textContent = station.prompts.f3;
+      $("stationIdText").textContent = stationId;
+    }
+
+    $("btn").addEventListener("click", async () => {
       clearErr();
 
-      if(!stationId || !station){
-        showErr("Unknown stationId");
-        return;
-      }
+      if (!station) return;
 
-      const main = ($("aMain").value || "").trim();
-      if(!main){
+      const main = $("aMain").value.trim();
+      if (!main) {
         showErr("Main answer is required.");
-        $("aMain").focus();
         return;
       }
-
-      const payload = {
-        stationId,
-        stationTitle: station.title,
-        prompts: station.prompts,
-        name: ($("studentName").value || "").trim(),
-        answers: {
-          main,
-          f1: ($("aF1").value || "").trim(),
-          f2: ($("aF2").value || "").trim(),
-          f3: ($("aF3").value || "").trim()
-        }
-      };
 
       setLoading(true);
 
-      try{
-        const res = await fetch("/.netlify/functions/mark", {
+      try {
+        const payload = {
+          stationId,
+          stationTitle: station.title,
+          prompts: station.prompts,
+          answers: {
+            main,
+            f1: $("aF1").value.trim(),
+            f2: $("aF2").value.trim(),
+            f3: $("aF3").value.trim()
+          },
+          name: $("name").value.trim()
+        };
+
+        const resp = await fetch("/.netlify/functions/mark", {
           method: "POST",
-          headers: { "Content-Type":"application/json" },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
 
-        const text = await res.text();
-
-        // ✅ CHANGE: if server returns HTML (timeout), don't try to parse + dump it
-        let data;
-        try{
-          data = JSON.parse(text);
-        }catch{
-          showErr("Server took too long (timeout). Please try again.");
+        const text = await resp.text();
+        let json;
+        try { json = JSON.parse(text); } catch(e){
+          showErr("Function didn't return JSON.\n\n" + text.slice(0, 800));
+          setLoading(false);
           return;
         }
 
-        if(!res.ok || data.error){
-          showErr(data.error || ("Request failed (" + res.status + ")"));
+        if (!resp.ok) {
+          showErr(json.error ? (json.error + (json.details ? ("\n\n" + json.details) : "")) : ("Request failed ("+resp.status+")"));
+          setLoading(false);
           return;
         }
 
-        renderResults(data);
-
-      }catch(e){
-        showErr(e.message || "Network error");
-      }finally{
+        renderResults(json);
+      } catch (e) {
+        showErr(e?.message || "Unknown client error");
+      } finally {
         setLoading(false);
       }
-    }
+    });
   </script>
 </body>
 </html>
