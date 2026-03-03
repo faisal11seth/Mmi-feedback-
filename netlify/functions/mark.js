@@ -1,130 +1,206 @@
 // netlify/functions/mark.js
-const fs = require("fs");
-const path = require("path");
 
-function clampText(s, maxChars) {
-  const t = String(s || "").trim();
-  if (!t) return "";
-  return t.length > maxChars ? t.slice(0, maxChars) + "…" : t;
-}
+const ALLOWED_STATIONS = new Set([
+  "blood_transfusion_refusal",
+  "confidentiality_breach",
+  "colleague_error",
+  "dnar_conflict",
+  "capacity_refusal",
+  "breaking_bad_news",
+  "team_conflict",
+  "cultural_refusal",
+  "consent_understanding",
+  "relative_requests_information",
+]);
 
-// Optional: load exemplars from netlify/functions/exemplars.json if it exists
-function loadExemplars() {
-  try {
-    const p = path.join(__dirname, "exemplars.json");
-    if (fs.existsSync(p)) {
-      const raw = fs.readFileSync(p, "utf8");
-      return JSON.parse(raw);
-    }
-  } catch (_) {}
-  return null;
-}
-
-function pickStationExemplars(all, stationId) {
-  if (!all || !stationId) return null;
-  return all[stationId] || null;
-}
-
-function exBlock(label, obj) {
-  if (!obj) return "";
-  const excellent = clampText(obj.excellent, 900);
-  const average   = clampText(obj.average, 700);
-  const poor      = clampText(obj.poor, 500);
-
-  const lines = [];
-  if (excellent) lines.push(`- Excellent: ${excellent}`);
-  if (average)   lines.push(`- Average: ${average}`);
-  if (poor)      lines.push(`- Poor: ${poor}`);
-  if (!lines.length) return "";
-  return `\n${label} EXEMPLARS:\n${lines.join("\n")}\n`;
-}
-
+function json(statusCode, obj) {
+  return {
 exports.handler = async (event) => {
-  try {
-    if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: "Method Not Allowed" };
-    }
+  // Helper: consistent JSON responses
+  const j = (statusCode, obj) => ({
+    statusCode,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(obj),
+  });
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ error: "Server misconfigured: OPENAI_API_KEY missing in Netlify env vars." }),
-      };
-    }
+  // Helper: trim very long user input to avoid timeouts/cost
+  const clip = (s, max = 1200) => {
+    const t = String(s || "").trim();
+    if (!t) return "";
+    if (t.length <= max) return t;
+    return t.slice(0, max) + "…";
+  };
+}
 
-    const body = JSON.parse(event.body || "{}");
-    const { stationId, stationTitle, prompts, answers, name } = body || {};
+// Basic "is this real English sentence(s)?" check.
+// This is intentionally simple: we just want to detect random letters / nonsense.
+function looksLikeGibberish(text) {
+  const t = (text || "").trim();
+  if (!t) return true;
 
-    if (!stationId) {
-      return { statusCode: 400, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ error: "stationId missing" }) };
-    }
-    if (!prompts || !prompts.main) {
-      return { statusCode: 400, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ error: "prompts missing" }) };
-    }
-    if (!answers || !String(answers.main || "").trim()) {
-      return { statusCode: 400, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ error: "Main answer is required." }) };
-    }
+  // Too short to be meaningful
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length < 3) return true;
+  // Helper: build a compact but strict instruction
+  const buildPrompt = ({ stationId, stationTitle, prompts, answers, name }) => {
+    // Keep it compact: the main token driver is the user's text.
+    // We clip each answer to keep the request safe.
+    const aMain = clip(answers?.main, 1600);
+    const aF1 = clip(answers?.f1, 900);
+    const aF2 = clip(answers?.f2, 900);
+    const aF3 = clip(answers?.f3, 900);
 
-    // Clamp answers (avoid runaway token/timeouts)
-    const aMain = clampText(answers.main, 2200);
-    const aF1   = clampText(answers.f1, 1200);
-    const aF2   = clampText(answers.f2, 1200);
-    const aF3   = clampText(answers.f3, 1200);
+  // If it's mostly non-letters (e.g., "asdf123 !!!")
+  const letters = (t.match(/[a-zA-Z]/g) || []).length;
+  if (letters < Math.min(10, t.length * 0.35)) return true;
+    return `
+You are a strict UK medical school MMI examiner. Return ONLY valid JSON (no markdown, no extra keys).
 
-    // Optional exemplars per station
-    const exemplarsAll = loadExemplars();
-    const stationEx = pickStationExemplars(exemplarsAll, stationId);
+  // If it has extremely low vowel ratio (common in keyboard spam)
+  const vowels = (t.match(/[aeiouAEIOU]/g) || []).length;
+  if (letters > 0 && vowels / letters < 0.18) return true;
+Station: ${stationTitle || ""} (${stationId})
 
-    const exemplarsText = stationEx
-      ? [
-          exBlock("MAIN", stationEx.main),
-          exBlock("F1", stationEx.f1),
-          exBlock("F2", stationEx.f2),
-          exBlock("F3", stationEx.f3),
-        ].join("")
-      : "";
+  return false;
+}
 
-    // IMPORTANT: Output schema matches station.html exactly.
-    // Follow-ups: bullets only (as ONE string each), no "full" keys.
-    const input = `
-You are a strict UK medical school MMI examiner.
+function validateModelShape(parsed) {
+  // Required shape:
+  // {
+  //  scores: {overall, communication, empathy, ethics, insight},
+  //  feedback: { main, followups:{f1,f2,f3} },
+  //  models: { bullets:{main,f1,f2,f3}, full:{main,f1,f2,f3} }
+  // }
+PROMPTS
+Main: ${prompts?.main || ""}
+F1: ${prompts?.f1 || ""}
+F2: ${prompts?.f2 || ""}
+F3: ${prompts?.f3 || ""}
 
-Return ONLY valid JSON. No markdown. No extra keys.
+  const okObj = (x) => x && typeof x === "object" && !Array.isArray(x);
+Candidate: ${name || ""}
 
-Station ID: ${stationId}
-Station Title: ${clampText(stationTitle || "", 120)}
-
-PROMPTS:
-Main: ${clampText(prompts.main, 380)}
-F1: ${clampText(prompts.f1 || "", 240)}
-F2: ${clampText(prompts.f2 || "", 240)}
-F3: ${clampText(prompts.f3 || "", 240)}
-
-STUDENT NAME (optional): ${clampText(name || "", 60)}
-
-ANSWERS:
+  if (!okObj(parsed)) return "Top-level output is not an object.";
+ANSWERS
 Main: ${aMain}
 F1: ${aF1}
 F2: ${aF2}
 F3: ${aF3}
-${exemplarsText ? `\nREFERENCE EXEMPLARS (calibrate scoring + structure; do NOT copy verbatim):\n${exemplarsText}\n` : ""}
+
+  if (!okObj(parsed.scores)) return "Missing scores object.";
+  for (const k of ["overall", "communication", "empathy", "ethics", "insight"]) {
+    if (!(k in parsed.scores)) return `Missing scores.${k}`;
+  }
+Marking rules
+- Score each domain 0–10. Overall should reflect the 4 domains.
+- If content is unsafe/unprofessional/nonsense/too short (e.g., random letters), score 0–2 and explain clearly.
+- Feedback must be specific and actionable (what to do next time).
+- Model answers must be "rigid" and reusable: clear structure, UK context (GMC, capacity, consent, duty of candour etc when relevant).
+- Model answers should be longer than a few lines, but keep each "full" answer to ~120–180 words.
+
+  if (!okObj(parsed.feedback)) return "Missing feedback object.";
+  if (typeof parsed.feedback.main !== "string") return "feedback.main must be a string.";
+  if (!okObj(parsed.feedback.followups)) return "feedback.followups missing.";
+  for (const k of ["f1", "f2", "f3"]) {
+    if (typeof parsed.feedback.followups[k] !== "string") return `feedback.followups.${k} must be a string.`;
+  }
+Return JSON in EXACT shape:
+
+  if (!okObj(parsed.models)) return "Missing models object.";
+  if (!okObj(parsed.models.bullets)) return "models.bullets missing.";
+  if (!okObj(parsed.models.full)) return "models.full missing.";
+  for (const group of ["bullets", "full"]) {
+    for (const k of ["main", "f1", "f2", "f3"]) {
+      if (typeof parsed.models[group][k] !== "string") return `models.${group}.${k} must be a string.`;
+    }
+{
+  "scores": { "overall": 0, "communication": 0, "empathy": 0, "ethics": 0, "insight": 0 },
+  "feedback": {
+    "main": "string",
+    "followups": { "f1": "string", "f2": "string", "f3": "string" }
+  },
+  "models": {
+    "bullets": { "main": "string", "f1": "string", "f2": "string", "f3": "string" },
+    "full": { "main": "string", "f1": "string", "f2": "string", "f3": "string" }
+  }
+
+  return null;
+}
+`.trim();
+  };
+
+exports.handler = async (event) => {
+  try {
+    if (event.httpMethod !== "POST") {
+      return json(405, { error: "Method Not Allowed" });
+      return j(405, { error: "Method Not Allowed" });
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return json(500, {
+        error: "Server misconfigured: OPENAI_API_KEY missing in Netlify env vars.",
+      });
+      return j(500, { error: "Server misconfigured: OPENAI_API_KEY missing in Netlify env vars." });
+    }
+
+    let body;
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch (e) {
+      return json(400, { error: "Invalid JSON in request body." });
+    } catch {
+      return j(400, { error: "Invalid JSON body sent to function." });
+    }
+
+    const { stationId, stationTitle, prompts, answers, name } = body || {};
+
+    if (!stationId) return json(400, { error: "stationId missing" });
+    if (!ALLOWED_STATIONS.has(stationId)) {
+      return json(400, { error: `Invalid stationId: ${stationId}` });
+    }
+    if (!prompts || !prompts.main) return json(400, { error: "prompts missing" });
+
+    const mainAns = String(answers?.main || "").trim();
+    if (!mainAns) return json(400, { error: "Main answer is required." });
+    if (!stationId) return j(400, { error: "stationId missing" });
+    if (!prompts || !prompts.main) return j(400, { error: "prompts missing" });
+    if (!answers || !String(answers.main || "").trim()) return j(400, { error: "Main answer is required." });
+
+    // Optional: score low if gibberish, but still return a full structured response.
+    // We'll tell the model to handle it, BUT this is a guard for obviously empty/garbage.
+    const mainIsGib = looksLikeGibberish(mainAns);
+
+    // --- PROMPT ---
+    const input = `
+You are a strict UK medical school MMI examiner.
+
+Return ONLY valid JSON. No markdown. No commentary. No backticks.
+
+Station ID: ${stationId}
+Station Title: ${stationTitle || ""}
+
+PROMPTS:
+Main: ${prompts.main}
+F1: ${prompts.f1 || ""}
+F2: ${prompts.f2 || ""}
+F3: ${prompts.f3 || ""}
+
+STUDENT NAME (optional): ${name || ""}
+
+ANSWERS:
+Main: ${mainAns}
+F1: ${String(answers?.f1 || "")}
+F2: ${String(answers?.f2 || "")}
+F3: ${String(answers?.f3 || "")}
 
 Rules:
-- Score each domain 0–10. Overall reflects the whole performance.
-- If any answer is nonsense/too short/irrelevant, score 0–2 and explain clearly.
-- Feedback must be specific and improvement-focused.
+- If answers are nonsense/too short (e.g., random letters), score low (0–2/10) and explain why.
+- Provide feedback separately for MAIN and each FOLLOW-UP.
+- Provide model answers separately for MAIN and each FOLLOW-UP in BOTH bullets and full.
+- Full model answers should be written as natural paragraphs (no "Opening:", "Explain:", "Safety-net:" labels inside the paragraph).
 
-Model answers:
-- MAIN:
-  - Provide bullet points (each bullet on its own line starting with "- ").
-  - Provide one FULL natural paragraph model answer (no labels inside the paragraph).
-- FOLLOW-UPS (f1,f2,f3):
-  - Provide bullet points ONLY (each bullet on its own line starting with "- ").
-  - Make them detailed (8–12 bullets) but still readable.
-
-Return JSON in EXACTLY this shape:
+Return JSON in this exact shape:
 
 {
   "scores": { "overall": 0, "communication": 0, "empathy": 0, "ethics": 0, "insight": 0 },
@@ -133,77 +209,114 @@ Return JSON in EXACTLY this shape:
     "followups": { "f1": "string", "f2": "string", "f3": "string" }
   },
   "models": {
-    "main": { "bullets": "string", "full": "string" },
-    "followups": { "f1": "string", "f2": "string", "f3": "string" }
+    "bullets": { "main": "string", "f1": "string", "f2": "string", "f3": "string" },
+    "full": { "main": "string", "f1": "string", "f2": "string", "f3": "string" }
   }
 }
+
+${mainIsGib ? "IMPORTANT: The MAIN answer is gibberish/too short. Scores must be 0–2/10 and feedback must explicitly explain why." : ""}
 `.trim();
+    const input = buildPrompt({ stationId, stationTitle, prompts, answers, name });
 
+    // Abort safety: Netlify can be tight; keep this lower than your function timeout.
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 24000);
+    const timeout = setTimeout(() => controller.abort(), 25000);
+    const timeout = setTimeout(() => controller.abort(), 24000); // 24s
 
+    // --- CALL OPENAI RESPONSES API ---
     const resp = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4.1-mini",
+        // ✅ pinned model (use this)
+        model: "gpt-4.1-mini-2024-07-18",
         input,
+        // ✅ reduce timeouts / token explosions
+        max_output_tokens: 1200,
+        // ✅ correct replacement for old response_format
+        model: "gpt-4.1-mini",
+        // ✅ IMPORTANT: Responses API "input" in chat form (fixes the 400s)
+        input: [{ role: "user", content: input }],
+        // ✅ Correct way to force JSON output in Responses API
         text: { format: { type: "json_object" } },
-        max_output_tokens: 1600
+        // Small extras to reduce rambling + speed up
+        temperature: 0.4,
       }),
       signal: controller.signal,
     });
-
-    clearTimeout(timeout);
-
+@@ -186,52 +119,50 @@ ${mainIsGib ? "IMPORTANT: The MAIN answer is gibberish/too short. Scores must be
     const raw = await resp.text();
+
     if (!resp.ok) {
-      return {
-        statusCode: resp.status,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          error: `OpenAI request failed (${resp.status})`,
-          details: raw.slice(0, 900),
-        }),
-      };
+      return json(resp.status, {
+      // Surface the useful part of OpenAI error
+      return j(resp.status, {
+        error: `OpenAI request failed (${resp.status})`,
+        details: raw.slice(0, 900),
+        details: raw.slice(0, 1200),
+      });
     }
 
-    const data = JSON.parse(raw);
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      return json(500, {
+        error: "OpenAI returned non-JSON envelope unexpectedly.",
+        details: raw.slice(0, 900),
+      });
+    } catch {
+      return j(500, { error: "OpenAI returned non-JSON response envelope.", details: raw.slice(0, 1200) });
+    }
+
+    // Extract the output_text safely
+    // Extract model text
     const outText =
       data?.output?.[0]?.content?.find((c) => c.type === "output_text")?.text || "";
+      data?.output?.[0]?.content?.find((c) => c.type === "output_text")?.text ||
+      "";
 
     let parsed;
     try {
       parsed = JSON.parse(outText);
     } catch (e) {
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          error: "Model returned non-JSON output unexpectedly.",
-          details: outText.slice(0, 900),
-        }),
-      };
+      return json(500, {
+        error: "Model returned non-JSON output unexpectedly.",
+        details: outText.slice(0, 900),
+    } catch {
+      return j(500, {
+        error: "Model did not return valid JSON content.",
+        details: outText.slice(0, 1200),
+      });
     }
 
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(parsed),
-    };
+    const shapeErr = validateModelShape(parsed);
+    if (shapeErr) {
+      return json(500, {
+        error: "Unexpected response shape from function.",
+        details: shapeErr,
+        sample: JSON.stringify(parsed).slice(0, 900),
+    // Hard guard: ensure expected keys exist (prevents station.html breaking)
+    if (!parsed?.scores || !parsed?.feedback || !parsed?.models) {
+      return j(500, {
+        error: "Unexpected response shape from model.",
+        details: JSON.stringify(parsed).slice(0, 1200),
+      });
+    }
+
+    return json(200, parsed);
+    return j(200, parsed);
   } catch (err) {
     const msg =
       err?.name === "AbortError"
+        ? "Request timed out (server abort). Try again."
         ? "Request timed out (server abort). Try shorter answers or reduce output."
         : (err?.message || "Unknown server error");
 
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: msg }),
-    };
+    return json(500, { error: msg });
+    return j(500, { error: msg });
   }
 };
